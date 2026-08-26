@@ -15,7 +15,6 @@ from .protocol import (
 )
 from .session import AudioSocketSession
 
-
 logger = logging.getLogger("talkflow.audiosocket")
 
 

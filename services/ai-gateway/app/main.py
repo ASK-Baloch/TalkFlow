@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from app.realtime.audiosocket.manager import session_manager
-from app.realtime.audiosocket.metrics import audiosocket_metrics
 
 from app.core.logging import configure_logging
+from app.realtime.audiosocket.manager import session_manager
+from app.realtime.audiosocket.metrics import audiosocket_metrics
 from app.realtime.audiosocket.server import audiosocket_server
 
 
