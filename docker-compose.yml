@@ -8,48 +8,50 @@ services:
     restart: unless-stopped
 
     environment:
-      DATABASE_URL: postgresql+asyncpg://talkflow:admin@postgres:5432/talkflow
-      REDIS_URL: redis://redis:6379/0
       APP_ENV: development
 
+      DATABASE_URL: postgresql+asyncpg://talkflow:admin@postgres:5432/talkflow
+      REDIS_URL: redis://redis:6379/0
+
+      AUDIOSOCKET_HOST: 0.0.0.0
+      AUDIOSOCKET_PORT: 9019
+      AUDIOSOCKET_ECHO_ENABLED: "true"
+
     ports:
-      - "8000:8000"
+        - "127.0.0.1:8000:8000"
+        - "127.0.0.1:9019:9019"
 
     depends_on:
       postgres:
         condition: service_healthy
+
       redis:
         condition: service_started
+
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: talkflow-postgres
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: talkflow
       POSTGRES_USER: talkflow
       POSTGRES_PASSWORD: admin
-
+      POSTGRES_DB: talkflow
     ports:
       - "5432:5432"
-
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U talkflow -d talkflow"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: talkflow-redis
     restart: unless-stopped
-
     ports:
       - "6379:6379"
-
     volumes:
       - redis_data:/data
 
