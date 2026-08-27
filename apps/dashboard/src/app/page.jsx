@@ -1,8 +1,9 @@
+import DashboardView from "../components/dashboard/DashboardView"
+
 export default function Home() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-between p-24">
-      <h1>good work</h1>
-      <h2>good work now </h2>
-    </div>
+return (
+    <main className="w-full">
+      <DashboardView />
+    </main>
   );
 }
