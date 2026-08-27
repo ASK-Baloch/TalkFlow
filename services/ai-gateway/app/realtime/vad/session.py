@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from time import perf_counter_ns
 
@@ -10,7 +11,6 @@ from .audio import (
 from .detector import VadDetector
 from .silero import SileroVadEngine
 from .types import VadEvent
-import logging
 
 logger = logging.getLogger("talkflow.vad")
 
