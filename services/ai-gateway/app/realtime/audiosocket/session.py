@@ -10,9 +10,7 @@ class AudioSocketSession:
 
     remote_address: str | None = None
 
-    connected_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    connected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     audio_packets_received: int = 0
     audio_bytes_received: int = 0
