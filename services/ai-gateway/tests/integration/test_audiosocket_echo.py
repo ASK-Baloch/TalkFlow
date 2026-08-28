@@ -8,6 +8,7 @@ from app.realtime.audiosocket.protocol import (
     read_packet,
 )
 from app.realtime.audiosocket.server import AudioSocketServer
+from app.realtime.vad.service import vad_service
 
 
 @pytest.mark.asyncio
@@ -18,6 +19,7 @@ async def test_echo_audio():
     server.port = 19019
     server.echo_enabled = True
 
+    await vad_service.start()
     await server.start()
 
     try:
@@ -64,3 +66,4 @@ async def test_echo_audio():
 
     finally:
         await server.stop()
+        await vad_service.stop()
