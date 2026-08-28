@@ -4,6 +4,7 @@ import uuid
 from contextlib import suppress
 
 from app.core.config import get_settings
+from app.realtime.vad.service import vad_service
 
 from .constants import AudioSocketMessageType
 from .manager import session_manager
@@ -39,8 +40,7 @@ class AudioSocketServer:
         )
 
         addresses = ", ".join(
-            str(sock.getsockname())
-            for sock in self._server.sockets or []
+            str(sock.getsockname()) for sock in self._server.sockets or []
         )
 
         logger.info(
@@ -76,6 +76,7 @@ class AudioSocketServer:
         )
 
         await session_manager.add(session)
+        await vad_service.attach_session(session.connection_id)
 
         audiosocket_metrics.connections_total += 1
         audiosocket_metrics.active_connections += 1
@@ -124,6 +125,7 @@ class AudioSocketServer:
         finally:
             session.terminated = True
 
+            await vad_service.detach_session(connection_id)
             await session_manager.remove(connection_id)
 
             audiosocket_metrics.active_connections = max(
@@ -265,6 +267,20 @@ class AudioSocketServer:
 
         audiosocket_metrics.audio_packets_received += 1
         audiosocket_metrics.audio_bytes_received += len(payload)
+
+        # VAD currently consumes native 8k AudioSocket PCM only.
+        if message_type == AudioSocketMessageType.PCM_8K:
+            await vad_service.process_pcm(
+                connection_id=session.connection_id,
+                session_uuid=session.session_uuid,
+                payload=payload,
+            )
+        else:
+            logger.warning(
+                "Skipping VAD for non-8K PCM packet uuid=%s message_type=0x%02x",
+                session.session_uuid,
+                message_type,
+            )
 
         if not self.echo_enabled:
             return

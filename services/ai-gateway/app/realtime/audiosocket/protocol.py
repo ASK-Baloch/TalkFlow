@@ -27,9 +27,7 @@ async def read_packet(
     )
 
     if payload_length > MAX_PAYLOAD_SIZE:
-        raise AudioSocketProtocolError(
-            f"Invalid payload length: {payload_length}"
-        )
+        raise AudioSocketProtocolError(f"Invalid payload length: {payload_length}")
 
     if payload_length == 0:
         payload = b""
@@ -49,9 +47,7 @@ def encode_packet(
     payload_length = len(payload)
 
     if payload_length > MAX_PAYLOAD_SIZE:
-        raise AudioSocketProtocolError(
-            f"Payload too large: {payload_length}"
-        )
+        raise AudioSocketProtocolError(f"Payload too large: {payload_length}")
 
     header = bytes([message_type]) + payload_length.to_bytes(
         2,

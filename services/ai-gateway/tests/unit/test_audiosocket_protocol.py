@@ -25,11 +25,7 @@ def test_encode_pcm_packet():
 async def test_read_packet():
     payload = b"\x01\x02\x03\x04"
 
-    data = (
-        bytes([0x10])
-        + len(payload).to_bytes(2, "big")
-        + payload
-    )
+    data = bytes([0x10]) + len(payload).to_bytes(2, "big") + payload
 
     reader = asyncio.StreamReader()
     reader.feed_data(data)

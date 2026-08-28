@@ -7,15 +7,11 @@ services:
 
     restart: unless-stopped
 
+    env_file:
+      - .env
+
     environment:
       APP_ENV: development
-
-      DATABASE_URL: postgresql+asyncpg://talkflow:admin@postgres:5432/talkflow
-      REDIS_URL: redis://redis:6379/0
-
-      AUDIOSOCKET_HOST: 0.0.0.0
-      AUDIOSOCKET_PORT: 9019
-      AUDIOSOCKET_ECHO_ENABLED: "true"
 
     ports:
         - "127.0.0.1:8000:8000"
