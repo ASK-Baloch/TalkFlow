@@ -8,6 +8,8 @@ import StatsGrid from "../dashboard/StatsGrid";
 import DispositionChart from "../dashboard/DispositionChart";
 import DispositionComparison from "../dashboard/DispositionComparison";
 import CallsBucketChart from "../dashboard/CallsBucketChart";
+import CallsPerDayChart from "../dashboard/CallsPerDayChart"; 
+import PerformanceSection from "../dashboard/PerformanceSection";       
 
 export default function DashboardView() {
   const handleRefresh = () => {
@@ -56,6 +58,16 @@ export default function DashboardView() {
         {/* Row 3: Full-Width Calls Per 5-Minute Bucket */}
         <div className="w-full">
           <CallsBucketChart />
+        </div>
+
+        {/* Row 4: Full-Width Calls Per Day (Last 7 Days) */}
+        <div className="w-full">
+          <CallsPerDayChart />
+        </div>
+
+        {/* Row 5: Agent & Script Performance (XFER% Gauges) */}
+        <div className="w-full">
+          <PerformanceSection />
         </div>
       </main>
     </div>

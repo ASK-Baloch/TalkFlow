@@ -2,8 +2,8 @@ import DashboardView from "../components/dashboard/DashboardView"
 
 export default function Home() {
 return (
-    <main className="w-full">
+    <div className="w-full">
       <DashboardView />
-    </main>
+    </div>
   );
 }
