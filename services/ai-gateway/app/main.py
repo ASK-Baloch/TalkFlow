@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.logging import configure_logging
+from app.realtime.asr.metrics import asr_metrics
+from app.realtime.asr.service import asr_service
 from app.realtime.audiosocket.manager import session_manager
 from app.realtime.audiosocket.metrics import audiosocket_metrics
 from app.realtime.audiosocket.server import audiosocket_server
@@ -16,6 +18,8 @@ async def lifespan(app: FastAPI):
 
     await vad_service.start()
 
+    await asr_service.start()
+
     await audiosocket_server.start()
 
     try:
@@ -23,6 +27,11 @@ async def lifespan(app: FastAPI):
 
     finally:
         await audiosocket_server.stop()
+
+        # Stop ASR after audiosocket stops accepting calls, so ongoing processing can wind down or cancel
+        # Currently we don't have an explicit asr_service.stop() method implemented but we will call it if it exists
+        if hasattr(asr_service, "stop"):
+            await asr_service.stop()
 
         await vad_service.stop()
 
@@ -99,4 +108,26 @@ async def vad_status():
                 3,
             )
         ),
+    }
+
+
+@app.get("/internal/asr/status")
+async def asr_status():
+    return {
+        "enabled": asr_service.enabled,
+        "provider": "faster_whisper",
+        "model": asr_service.settings.asr_model if asr_service.enabled else None,
+        "device": asr_service.settings.asr_device if asr_service.enabled else None,
+        "active_sessions": asr_metrics.active_sessions,
+        "queue_size": asr_service.scheduler.queue.qsize()
+        if asr_service.enabled and asr_service.scheduler
+        else 0,
+        "partials_emitted": asr_metrics.partials_emitted,
+        "finals_emitted": asr_metrics.finals_emitted,
+        "stale_partials_dropped": asr_metrics.stale_partials_dropped,
+        "decode_errors": asr_metrics.decode_errors,
+        "partial_decode_average_ms": round(asr_metrics.partial_decode_average_ms(), 3),
+        "partial_decode_p95_ms": round(asr_metrics.partial_decode_p95_ms(), 3),
+        "final_decode_average_ms": round(asr_metrics.final_decode_average_ms(), 3),
+        "final_decode_p95_ms": round(asr_metrics.final_decode_p95_ms(), 3),
     }
