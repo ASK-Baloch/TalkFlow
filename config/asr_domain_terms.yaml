@@ -20,12 +20,16 @@ terms:
     variants:
       - "medicare part a"
       - "medicare part ay"
+      - "medical part a"
+      - "medical part ay"
 
   Medicare_Part_B:
     canonical: "Medicare Part B"
     variants:
       - "medicare part b"
       - "medicare part bee"
+      - "medical part b"
+      - "medical part bee"
       
   Part_A:
     canonical: "Part A"

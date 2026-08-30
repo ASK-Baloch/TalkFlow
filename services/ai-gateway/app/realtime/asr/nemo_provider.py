@@ -19,6 +19,11 @@ class NemoStream(AsrStream):
         self.model = provider.model
         
         self._chunks = []
+        self._partial_hyp = None
+        self._accumulated_text = ""
+        
+        # Target ~320ms chunks (16000 * 0.320 = 5120 samples)
+        self._chunk_samples = 5120
         
     def push_audio(self, audio: np.ndarray) -> None:
         if audio.size > 0:
@@ -26,22 +31,58 @@ class NemoStream(AsrStream):
             
     def get_partial(self) -> AsrDecodeResult:
         if not self._chunks:
-            return AsrDecodeResult(text="", language="en", language_probability=1.0)
+            text = self._accumulated_text
+            if self._partial_hyp:
+                hyp = self._partial_hyp[0] if isinstance(self._partial_hyp, tuple) else self._partial_hyp
+                if isinstance(hyp, list) and len(hyp) > 0:
+                    text = (text + " " + hyp[0].text).strip()
+            return AsrDecodeResult(text=text, language="en", language_probability=1.0)
             
         audio = np.concatenate(self._chunks)
-        return self.provider.transcribe(
-            audio, 
-            beam_size=self.beam_size, 
-            context_hints=self.context_hints
+        
+        while len(audio) >= self._chunk_samples:
+            chunk = audio[:self._chunk_samples]
+            audio = audio[self._chunk_samples:]
+            
+            # Process the chunk with the current partial hypothesis state
+            self._partial_hyp = self.provider.transcribe_chunk(
+                chunk,
+                partial_hypothesis=self._partial_hyp
+            )
+            
+        # Save remaining audio
+        self._chunks = [audio] if audio.size > 0 else []
+        
+        # Get the current text
+        text = self._accumulated_text
+        if self._partial_hyp:
+            hyp = self._partial_hyp[0] if isinstance(self._partial_hyp, tuple) else self._partial_hyp
+            if isinstance(hyp, list) and len(hyp) > 0:
+                text = (text + " " + hyp[0].text).strip()
+                
+        return AsrDecodeResult(
+            text=text, 
+            language="en", 
+            language_probability=1.0
         )
         
     def finalize(self) -> AsrDecodeResult:
+        # Process any remaining audio smaller than chunk_samples
+        if self._chunks:
+            audio = np.concatenate(self._chunks)
+            if len(audio) > 0:
+                self._partial_hyp = self.provider.transcribe_chunk(
+                    audio,
+                    partial_hypothesis=self._partial_hyp
+                )
+        
         res = self.get_partial()
         self.close()
         return res
         
     def close(self) -> None:
         self._chunks.clear()
+        self._partial_hyp = None
 
 
 class NemoProvider(AsrProvider):
@@ -80,6 +121,37 @@ class NemoProvider(AsrProvider):
         logger.info("NeMo ASR model ready")
 
     def open_stream(self, *, beam_size: int, context_hints: list[str] | None = None) -> AsrStream:
+        boost_enabled = os.getenv("ASR_PHRASE_BOOST_ENABLED", "true").lower() == "true"
+        
+        if boost_enabled and context_hints and len(context_hints) > 0:
+            boost_score = float(os.getenv("ASR_PHRASE_BOOST_SCORE", "10.0"))
+            try:
+                import copy
+                from omegaconf import open_dict
+                
+                # Clone default cfg to preserve native pad/blank IDs
+                cfg = copy.deepcopy(self.model.cfg.decoding)
+                with open_dict(cfg):
+                    strategy = cfg.strategy
+                    if not hasattr(cfg, strategy):
+                        setattr(cfg, strategy, {})
+                    
+                    strategy_cfg = getattr(cfg, strategy)
+                    strategy_cfg.word_vocab = context_hints
+                    strategy_cfg.word_score = boost_score
+                    
+                self.model.change_decoding_strategy(cfg)
+                logger.info("ASR phrase boosting ACTIVE for %d contexts (score=%.1f)", len(context_hints), boost_score)
+            except Exception as e:
+                logger.error("Failed to apply RNNT phrase boosting: %s", e)
+                raise RuntimeError(f"Phrase boosting initialization failed: {e}") from e
+        else:
+            try:
+                # Reset to raw strategy if no hints exist
+                self.model.change_decoding_strategy(self.model.cfg.decoding)
+            except Exception:
+                pass
+                
         return NemoStream(self, beam_size, context_hints)
 
     def transcribe(
@@ -93,29 +165,6 @@ class NemoProvider(AsrProvider):
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
             
         try:
-            duration = len(audio) / 16000.0
-            rms = np.sqrt(np.mean(audio**2)) if len(audio) > 0 else 0
-            
-            logger.info(
-                f"ASR INPUT\n"
-                f"samples={len(audio)}\n"
-                f"duration={duration:.3f}\n"
-                f"sample_rate=16000\n"
-                f"dtype={audio.dtype}\n"
-                f"min={np.min(audio):.4f}\n"
-                f"max={np.max(audio):.4f}\n"
-                f"mean={np.mean(audio):.4f}\n"
-                f"rms={rms:.4f}"
-            )
-            
-            # Save exactly one ASR input WAV for debugging (override each time)
-            try:
-                import soundfile as sf
-                sf.write("/app/debug/asr_input.wav", audio, 16000, subtype='PCM_16')
-            except Exception as e:
-                logger.warning("Failed to write debug/asr_input.wav: %s", e)
-                
-            # Pass the numpy array directly to avoid WAV IO overhead!
             results = self.model.transcribe(audio=audio)
             
             if not results:
@@ -148,3 +197,22 @@ class NemoProvider(AsrProvider):
         except Exception as e:
             logger.error("Error transcribing with NeMo: %s", e)
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
+
+    def transcribe_chunk(
+        self,
+        audio: np.ndarray,
+        *,
+        partial_hypothesis=None,
+    ):
+        if audio.size == 0:
+            return partial_hypothesis
+            
+        try:
+            if partial_hypothesis is None:
+                results = self.model.transcribe(audio=audio, return_hypotheses=True)
+            else:
+                results = self.model.transcribe(audio=audio, return_hypotheses=True, partial_hypothesis=partial_hypothesis)
+            return results
+        except Exception as e:
+            logger.error("Error transcribing chunk with NeMo: %s", e)
+            return partial_hypothesis

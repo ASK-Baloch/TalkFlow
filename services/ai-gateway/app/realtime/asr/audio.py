@@ -15,13 +15,15 @@ def pcm16le_to_float32(
         dtype="<i2",
     )
 
+    # Convert to float and apply a slight 0.9 gain reduction
+    # This prevents the Sinc resampler from overshooting past 1.0 (Gibbs phenomenon)
     return (
         pcm.astype(
             np.float32,
             copy=False,
         )
         / 32768.0
-    )
+    ) * 0.9
 
 
 class StreamingResampler:
@@ -54,10 +56,14 @@ class StreamingResampler:
                 dtype=np.float32,
             )
 
-        return self._stream.resample_chunk(
+        resampled = self._stream.resample_chunk(
             audio,
             last=False,
         )
+        
+        # Strictly enforce the [-1.0, 1.0] ASR bounds 
+        # (the pre-gain usually prevents this from actually engaging)
+        return np.clip(resampled, -1.0, 1.0)
 
     def reset(self):
         self._create_stream()

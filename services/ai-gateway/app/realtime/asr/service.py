@@ -165,15 +165,13 @@ class AsrService:
             if self.provider:
                 from app.core.config import get_asr_vocabulary
                 vocab = get_asr_vocabulary()
-                context_hints = vocab.get("global", [])
                 
-                # TODO: Retrieve dynamic qualification state context hints here
-                # if session.qualification_state in vocab.get("states", {}):
-                #     context_hints.extend(vocab["states"][session.qualification_state])
+                # Combine global terms with dynamic state hints passed from the application
+                active_hints = list(set(vocab.get("global", []) + session.context_hints))
                 
                 asr_stream = self.provider.open_stream(
                     beam_size=self.settings.asr_final_beam_size,
-                    context_hints=context_hints
+                    context_hints=active_hints
                 )
             
             session.start_utterance(asr_stream=asr_stream)

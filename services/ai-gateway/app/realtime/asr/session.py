@@ -56,6 +56,13 @@ class AsrSession:
         self.speech_end_ns = None
         
         self.asr_stream = None
+        self.context_hints: list[str] = []
+
+    def set_context_hints(self, hints: list[str]) -> None:
+        """Dynamically update contextual phrases for the active or next ASR stream."""
+        self.context_hints = hints
+        if self.asr_stream:
+            self.asr_stream.context_hints = hints
 
     def process_pcm(
         self,
