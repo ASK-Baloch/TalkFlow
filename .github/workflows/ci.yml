@@ -36,5 +36,8 @@ jobs:
 
       - name: Test
         working-directory: services/ai-gateway
+        env:
+          DATABASE_URL: "postgresql+asyncpg://test:test@localhost:5432/test"
+          REDIS_URL: "redis://localhost:6379/0"
         run: |
           pytest
