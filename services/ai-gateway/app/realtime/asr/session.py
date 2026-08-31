@@ -139,16 +139,18 @@ class AsrSession:
             active = self.utterances[self.active_utterance_id]
             active.speech_end_ns = perf_counter_ns()
             
-        import os
+        try:
+            import os
 
-        import soundfile as sf
-        os.makedirs("/app/test_set", exist_ok=True)
-        if self.active_utterance_id:
-            try:
+            import soundfile as sf
+            os.makedirs("/app/test_set", exist_ok=True)
+            if self.active_utterance_id:
                 sf.write(f"/app/test_set/{self.active_utterance_id}_8k.wav", self.utterance_8k.snapshot(), self.input_sample_rate)
                 sf.write(f"/app/test_set/{self.active_utterance_id}_16k.wav", self.utterance.snapshot(), self.sample_rate)
-            except OSError as e:
-                print(f"Failed to save audio for utterance {self.active_utterance_id}: {e}")
+        except ImportError:
+            pass
+        except OSError as e:
+            print(f"Failed to save audio for utterance {self.active_utterance_id}: {e}")
 
     def reset_utterance(self):
         self.utterance.clear()

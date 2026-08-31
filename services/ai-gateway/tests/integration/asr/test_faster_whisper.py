@@ -16,6 +16,7 @@ def test_faster_whisper_smoke():
         language=settings.asr_language,
         condition_on_previous_text=False,
         word_timestamps=False,
+        initial_prompt=settings.asr_initial_prompt,
     )
 
     # 1 second of silence

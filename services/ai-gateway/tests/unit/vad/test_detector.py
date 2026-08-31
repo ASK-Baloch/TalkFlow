@@ -87,4 +87,5 @@ def test_short_pause_does_not_end_speech():
     # Speech resumes.
     events = detector.process_probability(0.9)
 
-    assert events == []
+    assert len(events) == 1
+    assert events[0].event_type == VadEventType.SPEECH_RESUMED
