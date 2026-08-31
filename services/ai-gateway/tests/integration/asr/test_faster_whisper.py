@@ -1,7 +1,7 @@
+from unittest import mock
+
 import numpy as np
 import pytest
-
-import unittest.mock as mock
 
 from app.core.config import get_settings
 from app.realtime.asr.faster_whisper import FasterWhisperProvider
