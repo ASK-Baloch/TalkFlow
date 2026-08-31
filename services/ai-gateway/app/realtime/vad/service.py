@@ -15,7 +15,7 @@ from .pool import (
     VadCapacityError,
 )
 from .session import VadSession
-from .types import VadEventType
+from .types import VadEvent, VadEventType
 
 logger = logging.getLogger("talkflow.vad")
 
@@ -179,14 +179,14 @@ class VadService:
         connection_id: str,
         session_uuid: str | None,
         payload: bytes,
-    ) -> None:
+    ) -> list[VadEvent]:
         if not self.enabled:
-            return
+            return []
 
         session = self._sessions.get(connection_id)
 
         if session is None:
-            return
+            return []
 
         session.session_uuid = session_uuid
 
@@ -202,7 +202,7 @@ class VadService:
                 session_uuid,
             )
 
-            return
+            return []
 
         for inference_ms in inference_times:
             vad_metrics.chunks_processed += 1
@@ -234,6 +234,8 @@ class VadService:
                 event.sample_index,
                 event.detection_delay_ms,
             )
+
+        return events
 
 
 vad_service = VadService()

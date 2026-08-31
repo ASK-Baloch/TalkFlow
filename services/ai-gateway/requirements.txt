@@ -1,4 +1,4 @@
-﻿alembic==1.19.1
+alembic==1.19.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
@@ -38,3 +38,7 @@ watchfiles==1.2.0
 websockets==17.0.1
 onnxruntime==1.29.0
 silero-vad==6.2.1
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
+soxr
+faster-whisper
