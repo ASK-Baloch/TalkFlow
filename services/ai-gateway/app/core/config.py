@@ -37,6 +37,38 @@ class Settings(BaseSettings):
     audiosocket_host: str = "0.0.0.0"
     audiosocket_port: int = 9019
 
+    asr_enabled: bool = False
+    asr_provider: str = "nemo"
+
+    asr_model: str = "models/parakeet-unified-en-0.6b.nemo"
+    asr_device: str = "cuda"
+    asr_compute_type: str = "float16"
+
+    asr_language: str = "en"
+
+    asr_input_sample_rate: int = 8000
+    asr_sample_rate: int = 16000
+
+    asr_pre_roll_ms: int = 320
+
+    asr_partial_enabled: bool = True
+    asr_partial_min_audio_ms: int = 640
+    asr_partial_interval_ms: int = 480
+
+    asr_final_beam_size: int = 1
+    asr_partial_beam_size: int = 1
+
+    asr_max_utterance_seconds: int = 30
+
+    asr_queue_maxsize: int = 16
+    asr_workers: int = 1
+
+    asr_log_partials: bool = True
+
+    asr_word_timestamps: bool = False
+    asr_condition_on_previous_text: bool = False
+    asr_initial_prompt: str = "TalkFlow."
+
     audiosocket_echo_enabled: bool = True
 
     model_config = SettingsConfigDict(
@@ -49,3 +81,16 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+@lru_cache
+def get_asr_vocabulary() -> dict:
+    from pathlib import Path
+
+    import yaml
+    
+    vocab_path = Path(__file__).parent.parent.parent.parent.parent / "config" / "asr_domain_terms.yaml"
+    if not vocab_path.exists():
+        return {"terms": {}, "global": [], "states": {}}
+        
+    with open(vocab_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {"terms": {}, "global": [], "states": {}}

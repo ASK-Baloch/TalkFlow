@@ -51,8 +51,11 @@ class VadSession:
             inference_times_ms.append(inference_ms)
 
             from app.core.config import get_settings
+
             if get_settings().vad_log_probabilities:
-                logger.info(f"VAD chunk probability={probability:.3f} inference_ms={inference_ms:.2f}")
+                logger.info(
+                    f"VAD chunk probability={probability:.3f} inference_ms={inference_ms:.2f} max_amp={audio.max():.4f}"
+                )
 
             self.processed_chunks += 1
 
