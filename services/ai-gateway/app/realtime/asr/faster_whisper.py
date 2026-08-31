@@ -17,7 +17,7 @@ if os.name == "nt":
                     try:
                         os.add_dll_directory(bin_path)
                         os.environ["PATH"] = bin_path + os.pathsep + os.environ.get("PATH", "")
-                    except Exception:  # noqa: BLE001, S110
+                    except Exception:  # noqa: S110
                         pass
 
 import numpy as np

@@ -296,7 +296,7 @@ class AsrService:
                 os.makedirs("/app/test_set/trim_validation", exist_ok=True)
                 try:
                     sf.write(f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav", audio, sample_rate)
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.warning(f"Failed to save debug untrimmed file: {e}")
             
             if end_trim_idx > 0:
@@ -307,7 +307,7 @@ class AsrService:
             if self._trim_validation_count < 5:
                 try:
                     sf.write(f"/app/test_set/trim_validation/trimmed_{self._trim_validation_count}.wav", trimmed_audio, sample_rate)
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.warning(f"Failed to save debug trimmed file: {e}")
                 self._trim_validation_count += 1
                 

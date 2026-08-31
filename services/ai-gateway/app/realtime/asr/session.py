@@ -163,7 +163,7 @@ class AsrSession:
         if self.asr_stream:
             try:
                 self.asr_stream.close()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 print(f"Error closing asr stream: {e}")
             self.asr_stream = None
 

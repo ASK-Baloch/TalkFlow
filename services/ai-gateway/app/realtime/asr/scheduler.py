@@ -199,7 +199,7 @@ class AsrScheduler:
                         try:
                             sf.write(f"/app/test_set/FINAL-ASR-INPUT-{job.utterance_id}.wav", job.audio, 16000)
                             logger.info("FINAL ASR FORENSIC: Saved exact buffer to /app/test_set/FINAL-ASR-INPUT-%s.wav", job.utterance_id)
-                        except Exception as e:  # noqa: BLE001
+                        except Exception as e:
                             logger.error("FINAL ASR FORENSIC: Failed to save wav: %s", e)
                         
                         logger.info("FINAL ASR FORENSIC: Running LIVE Original Transcribe")

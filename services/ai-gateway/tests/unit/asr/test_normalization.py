@@ -1,5 +1,5 @@
-import pytest
 from app.realtime.asr.normalization import get_domain_normalizer, normalize_transcript
+
 
 def test_normalization_positive():
     """

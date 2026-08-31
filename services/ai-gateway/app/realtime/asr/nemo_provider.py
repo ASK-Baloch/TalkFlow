@@ -155,7 +155,7 @@ class NemoProvider(AsrProvider):
                 language="en", 
                 language_probability=1.0,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("Error transcribing with NeMo: %s", e)
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
 
@@ -174,6 +174,6 @@ class NemoProvider(AsrProvider):
             else:
                 results = self.model.transcribe(audio=audio, return_hypotheses=True, partial_hypothesis=partial_hypothesis)
             return results
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("Error transcribing chunk with NeMo: %s", e)
             return partial_hypothesis
