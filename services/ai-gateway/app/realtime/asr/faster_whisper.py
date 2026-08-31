@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 import os
 import sys
@@ -16,7 +17,7 @@ if os.name == "nt":
                     try:
                         os.add_dll_directory(bin_path)
                         os.environ["PATH"] = bin_path + os.pathsep + os.environ.get("PATH", "")
-                    except Exception:
+                    except Exception:  # noqa: BLE001, S110
                         pass
 
 import numpy as np
@@ -80,6 +81,7 @@ class FasterWhisperProvider(AsrProvider):
         self.initial_prompt = initial_prompt
 
         import time
+
         import torch
         
         if device == "cuda" and not torch.cuda.is_available():

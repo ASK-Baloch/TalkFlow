@@ -1,11 +1,13 @@
-import time
-import sys
+# ruff: noqa
 import os
+import sys
+import time
 
 # Add the parent directory to sys.path so we can import 'app'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.realtime.asr.normalization import get_domain_normalizer
+
 
 def benchmark():
     normalizer = get_domain_normalizer()
@@ -50,3 +52,4 @@ def benchmark():
     
 if __name__ == "__main__":
     benchmark()
+

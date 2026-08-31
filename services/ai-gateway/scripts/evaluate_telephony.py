@@ -1,9 +1,11 @@
-import os
+# ruff: noqa
 import glob
 import json
-import numpy as np
+import os
 import time
-from difflib import SequenceMatcher
+
+import numpy as np
+
 
 def calculate_wer(reference, hypothesis):
     ref_words = reference.lower().replace('.', '').replace(',', '').split()
@@ -66,8 +68,8 @@ def main():
         print(f"WARNING: Expected {len(EXPECTED_PHRASES)} utterances, but found {len(wav_files)} WAV files. Evaluation may misalign if order is broken.")
 
     print("Loading Parakeet Model...")
-    from omegaconf import OmegaConf, open_dict
     import nemo.collections.asr as nemo_asr
+    from omegaconf import OmegaConf
     model_path = "/app/models/parakeet-unified-en-0.6b/parakeet-unified-en-0.6b.nemo"
     model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(model_path)
     
@@ -86,7 +88,6 @@ def main():
 
     import soundfile as sf
     
-    results = []
     manifest = []
     
     total_wer = 0.0
@@ -110,7 +111,7 @@ def main():
     print("\nProcessing utterances...")
     for i, wav_path in enumerate(wav_files):
         expected_text, category = EXPECTED_PHRASES[i]
-        utterance_id = os.path.basename(wav_path).replace("FINAL-ASR-INPUT-", "").replace(".wav", "")
+        os.path.basename(wav_path).replace("FINAL-ASR-INPUT-", "").replace(".wav", "")
         
         audio, _ = sf.read(wav_path)
         
@@ -204,8 +205,7 @@ def main():
         })
 
     with open("/app/test_set/phase3_telephony_manifest.jsonl", "w") as f:
-        for m in manifest:
-            f.write(json.dumps(m) + "\\n")
+        f.writelines(json.dumps(m) + "\\n" for m in manifest)
             
     avg_wer = total_wer / len(wav_files)
     
@@ -252,3 +252,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

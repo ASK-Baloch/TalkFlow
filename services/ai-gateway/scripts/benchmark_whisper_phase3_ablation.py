@@ -1,12 +1,13 @@
-import os
+# ruff: noqa
 import csv
-import time
-import numpy as np
 import gc
+import time
+
+import numpy as np
 import torch
-import soundfile as sf
 from faster_whisper import WhisperModel
 from semantic_extractor import SemanticExtractor
+
 
 def calculate_wer(reference, hypothesis):
     ref_words = reference.lower().replace('.', '').replace(',', '').split()
@@ -252,3 +253,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

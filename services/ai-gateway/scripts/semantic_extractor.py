@@ -1,9 +1,11 @@
+# ruff: noqa
 import re
-from typing import Dict, Any
+from typing import Any
+
 
 class SemanticExtractor:
     @staticmethod
-    def extract(text: str) -> Dict[str, Any]:
+    def extract(text: str) -> dict[str, Any]:
         """
         Deterministically extracts domain entities from the transcript.
         """
@@ -69,3 +71,4 @@ class SemanticExtractor:
                 result["age"] = digit_match.group(1)
                 
         return result
+

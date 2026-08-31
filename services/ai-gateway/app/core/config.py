@@ -84,8 +84,9 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_asr_vocabulary() -> dict:
-    import yaml
     from pathlib import Path
+
+    import yaml
     
     vocab_path = Path(__file__).parent.parent.parent.parent.parent / "config" / "asr_domain_terms.yaml"
     if not vocab_path.exists():

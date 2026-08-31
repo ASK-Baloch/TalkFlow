@@ -1,11 +1,12 @@
-import asyncio
+# ruff: noqa
+import os
 import socket
-import struct
 import time
 import uuid
-import os
-import soundfile as sf
+
 import numpy as np
+import soundfile as sf
+
 
 def float32_to_pcm16le(audio: np.ndarray) -> bytes:
     audio = np.clip(audio, -1.0, 1.0)
@@ -38,7 +39,7 @@ def main():
         call_uuid = uuid.uuid4().bytes
         send_audiosocket(sock, 0x01, call_uuid)
         
-        t2 = time.perf_counter_ns()
+        time.perf_counter_ns()
         for idx in range(0, len(audio_f32), chunk_size):
             chunk = audio_f32[idx:idx+chunk_size]
             if len(chunk) < chunk_size:
@@ -53,7 +54,7 @@ def main():
             send_audiosocket(sock, 0x10, silence_payload)
             time.sleep(0.04)
             
-        t3 = time.perf_counter_ns()
+        time.perf_counter_ns()
         
         send_audiosocket(sock, 0x00)
         sock.close()
@@ -63,3 +64,4 @@ def main():
         
 if __name__ == "__main__":
     main()
+

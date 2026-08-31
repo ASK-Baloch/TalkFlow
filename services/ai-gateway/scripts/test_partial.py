@@ -1,8 +1,9 @@
-import numpy as np
-import soundfile as sf
-import nemo.collections.asr as nemo_asr
-import torch
+# ruff: noqa
 import warnings
+
+import nemo.collections.asr as nemo_asr
+import numpy as np
+
 warnings.filterwarnings("ignore")
 
 def main():
@@ -31,3 +32,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

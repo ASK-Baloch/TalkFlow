@@ -1,8 +1,9 @@
-import os
+# ruff: noqa
 import glob
-import time
+import os
 import sys
-import numpy as np
+import time
+
 from omegaconf import OmegaConf, open_dict
 
 try:
@@ -121,3 +122,4 @@ def run_matrix_eval(test_set_dir: str):
 
 if __name__ == "__main__":
     run_matrix_eval("/app/test_set")
+

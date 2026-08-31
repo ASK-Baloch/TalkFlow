@@ -1,8 +1,11 @@
+# ruff: noqa
 import argparse
 import sys
-import numpy as np
 import wave
-import scipy.io.wavfile as wavfile
+
+import numpy as np
+from scipy.io import wavfile
+
 
 def audit_wav(path: str):
     try:
@@ -65,7 +68,7 @@ def audit_wav(path: str):
     
     dc_offset = np.mean(norm_data)
     
-    print(f"=== Audio Quality Report ===")
+    print("=== Audio Quality Report ===")
     print(f"File: {path}")
     print(f"Sample Rate: {sample_rate} Hz")
     print(f"Channels: {channels}")
@@ -74,16 +77,17 @@ def audit_wav(path: str):
     print(f"Compression: {comptype}")
     print(f"Duration: {duration:.3f} seconds")
     print(f"Frames: {nframes}")
-    print(f"-----------------------------")
+    print("-----------------------------")
     print(f"Peak Amplitude (norm): {peak_amplitude:.6f}")
     print(f"RMS (norm): {rms:.6f}")
     print(f"DC Offset (norm): {dc_offset:.6f}")
     print(f"Clipping Samples: {clipping_count} ({clipping_percent:.4f}%)")
     print(f"Samples outside [-1, 1]: {out_of_bounds_count}")
-    print(f"=============================")
+    print("=============================")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", help="Path to WAV file")
     args = parser.parse_args()
     audit_wav(args.path)
+

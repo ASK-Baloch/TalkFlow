@@ -1,6 +1,8 @@
+# ruff: noqa
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
+
 
 def test_streaming_resampler():
     print("=== RESAMPLER VERIFICATION ===")
@@ -63,3 +65,4 @@ def test_streaming_resampler():
 
 if __name__ == "__main__":
     test_streaming_resampler()
+

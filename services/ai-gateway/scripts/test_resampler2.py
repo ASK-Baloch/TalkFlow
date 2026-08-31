@@ -1,5 +1,7 @@
+# ruff: noqa
 import numpy as np
 import soxr
+
 
 def test_streaming_resampler():
     print("=== SOXR RESAMPLER VERIFICATION ===")
@@ -37,3 +39,4 @@ def test_streaming_resampler():
 
 if __name__ == "__main__":
     test_streaming_resampler()
+

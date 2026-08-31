@@ -1,11 +1,14 @@
+# ruff: noqa
+import csv
 import os
+import random
 import socket
 import time
 import uuid
-import soundfile as sf
+
 import numpy as np
-import random
-import csv
+import soundfile as sf
+
 
 def send_audiosocket(sock, msg_type, payload=b""):
     if len(payload) > 65535:
@@ -86,3 +89,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

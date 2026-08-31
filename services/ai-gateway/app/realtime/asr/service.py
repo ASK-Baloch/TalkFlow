@@ -63,8 +63,9 @@ class AsrService:
 
         await self.scheduler.start()
 
-        import soundfile as sf
         import os
+
+        import soundfile as sf
         
         warmup_path = "/app/scripts/test_set/001.wav"
         if os.path.exists(warmup_path):
@@ -290,12 +291,13 @@ class AsrService:
                 self._trim_validation_count = 0
             if self._trim_validation_count < 5:
                 import os
+
                 import soundfile as sf
                 os.makedirs("/app/test_set/trim_validation", exist_ok=True)
                 try:
                     sf.write(f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav", audio, sample_rate)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Failed to save debug untrimmed file: {e}")
             
             if end_trim_idx > 0:
                 trimmed_audio = audio[start_idx:-end_trim_idx]
@@ -305,8 +307,8 @@ class AsrService:
             if self._trim_validation_count < 5:
                 try:
                     sf.write(f"/app/test_set/trim_validation/trimmed_{self._trim_validation_count}.wav", trimmed_audio, sample_rate)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Failed to save debug trimmed file: {e}")
                 self._trim_validation_count += 1
                 
             trimmed_duration_ms = len(trimmed_audio) / sample_rate * 1000

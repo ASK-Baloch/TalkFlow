@@ -1,13 +1,16 @@
-import torch
-import numpy as np
-import time
+# ruff: noqa
 import os
 import sys
 
+import numpy as np
+import torch
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from nemo.collections import asr
+
 from app.core.config import get_settings
-import nemo.collections.asr as asr
+
 
 def run():
     print("Loading model...")
@@ -53,9 +56,10 @@ def run():
             )
             
             print(f"Output tuple length: {len(out)}")
-            preds, text_list, cache_last_channel, cache_last_time, cache_last_channel_len, previous_hypotheses = out[:6]
+            _preds, text_list, cache_last_channel, cache_last_time, cache_last_channel_len, previous_hypotheses = out[:6]
             
             print(f"Text list: {text_list}")
 
 if __name__ == "__main__":
     run()
+

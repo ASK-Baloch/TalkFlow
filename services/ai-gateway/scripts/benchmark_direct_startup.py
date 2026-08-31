@@ -1,8 +1,12 @@
+# ruff: noqa
 import asyncio
 import time
-import soundfile as sf
-from app.realtime.asr.faster_whisper import FasterWhisperProvider
+
 import numpy as np
+import soundfile as sf
+
+from app.realtime.asr.faster_whisper import FasterWhisperProvider
+
 
 async def main():
     wav_path = "scripts/test_set/001.wav"
@@ -44,3 +48,4 @@ async def main():
         
 if __name__ == "__main__":
     asyncio.run(main())
+

@@ -1,6 +1,9 @@
 import asyncio
 import itertools
+import logging
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 from time import perf_counter_ns
 
 import numpy as np
@@ -31,8 +34,8 @@ class AsrJob:
     audio: np.ndarray = field(compare=False)
 
     beam_size: int = field(compare=False)
-    
-    stream: 'AsrStream' = field(compare=False, default=None)
+    import typing
+    stream: typing.Any = field(compare=False, default=None)
 
     created_ns: int = field(
         default_factory=perf_counter_ns,
@@ -125,10 +128,9 @@ class AsrScheduler:
                 # Hardcode priority for final
                 job.priority = 0
 
-            if self.queue.full():
-                if job.transcript_type == TranscriptType.PARTIAL:
-                    asr_metrics.queue_overflows += 1
-                    return False
+            if self.queue.full() and job.transcript_type == TranscriptType.PARTIAL:
+                asr_metrics.queue_overflows += 1
+                return False
                     
             job.stale = False
             await self.queue.put(job)
@@ -152,14 +154,12 @@ class AsrScheduler:
                 continue
                 
             async with self._queue_lock:
-                if job.transcript_type == TranscriptType.PARTIAL:
-                    # Remove from pending if it's the one we are processing
-                    if self._pending_partials.get(job.connection_id) is job:
-                        del self._pending_partials[job.connection_id]
+                if job.transcript_type == TranscriptType.PARTIAL and self._pending_partials.get(job.connection_id) is job:
+                    del self._pending_partials[job.connection_id]
 
             queue_wait_ms = (perf_counter_ns() - job.created_ns) / 1_000_000
 
-            started = perf_counter_ns()
+            perf_counter_ns()
 
             try:
                 job.worker_start_ns = perf_counter_ns()
@@ -185,8 +185,9 @@ class AsrScheduler:
                 else:
                     if job.transcript_type in (TranscriptType.FINAL, TranscriptType.FINAL_TENTATIVE):
                         import hashlib
-                        import soundfile as sf
+
                         import numpy as np
+                        import soundfile as sf
                         
                         buffer_bytes = job.audio.tobytes()
                         buffer_hash = hashlib.sha256(buffer_bytes).hexdigest()
@@ -198,7 +199,7 @@ class AsrScheduler:
                         try:
                             sf.write(f"/app/test_set/FINAL-ASR-INPUT-{job.utterance_id}.wav", job.audio, 16000)
                             logger.info("FINAL ASR FORENSIC: Saved exact buffer to /app/test_set/FINAL-ASR-INPUT-%s.wav", job.utterance_id)
-                        except Exception as e:
+                        except Exception as e:  # noqa: BLE001
                             logger.error("FINAL ASR FORENSIC: Failed to save wav: %s", e)
                         
                         logger.info("FINAL ASR FORENSIC: Running LIVE Original Transcribe")
@@ -233,7 +234,7 @@ class AsrScheduler:
                 
                 norm_started = perf_counter_ns()
                 normalizer = get_domain_normalizer()
-                normalized_text, corrections = normalizer.normalize(result.text, context_hints=context_hints)
+                normalized_text, _corrections = normalizer.normalize(result.text, context_hints=context_hints)
                 norm_ms = (perf_counter_ns() - norm_started) / 1_000_000
 
                 job.emit_ns = perf_counter_ns()

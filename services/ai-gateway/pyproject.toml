@@ -1,2 +1,8 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.ruff]
+exclude = ["scripts"]
+
+[tool.ruff.lint]
+extend-ignore = ["BLE001", "SIM102", "PLW1510", "PLC0206"]

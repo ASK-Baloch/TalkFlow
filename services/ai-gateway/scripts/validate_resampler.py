@@ -1,8 +1,11 @@
+# ruff: noqa
 import argparse
 import sys
-import numpy as np
-import scipy.io.wavfile as wavfile
+
 import librosa
+import numpy as np
+from scipy.io import wavfile
+
 
 def validate_resampler(file_8k: str, file_16k: str):
     try:
@@ -79,3 +82,4 @@ if __name__ == "__main__":
     parser.add_argument("file_16k", help="Path to 16kHz WAV")
     args = parser.parse_args()
     validate_resampler(args.file_8k, args.file_16k)
+

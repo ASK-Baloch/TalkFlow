@@ -1,9 +1,8 @@
 from __future__ import annotations
+
 import logging
-import os
-import tempfile
+
 import numpy as np
-import soundfile as sf
 
 from .provider import AsrDecodeResult, AsrProvider, AsrStream
 
@@ -140,9 +139,8 @@ class NemoProvider(AsrProvider):
                     text_obj = text_obj[0]
                     
             if hasattr(text_obj, 'text'):
-                confidence = None
                 if hasattr(text_obj, 'word_confidence'):
-                    confidence = text_obj.word_confidence
+                    pass
                 
                 text_str = text_obj.text
             elif hasattr(text_obj, 'text_no_timesteps'):
@@ -157,7 +155,7 @@ class NemoProvider(AsrProvider):
                 language="en", 
                 language_probability=1.0,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error("Error transcribing with NeMo: %s", e)
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
 
@@ -176,6 +174,6 @@ class NemoProvider(AsrProvider):
             else:
                 results = self.model.transcribe(audio=audio, return_hypotheses=True, partial_hypothesis=partial_hypothesis)
             return results
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error("Error transcribing chunk with NeMo: %s", e)
             return partial_hypothesis

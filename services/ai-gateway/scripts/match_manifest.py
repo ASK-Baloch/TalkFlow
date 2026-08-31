@@ -1,7 +1,9 @@
-import os
+# ruff: noqa
+import difflib
 import glob
 import json
-import difflib
+import os
+
 
 def main():
     try:
@@ -91,9 +93,9 @@ def main():
         print(f"  {k}: {v}")
         
     with open("/app/test_set/phase3_manifest.jsonl", "w") as f:
-        for m in manifest:
-            f.write(json.dumps(m) + "\\n")
+        f.writelines(json.dumps(m) + "\\n" for m in manifest)
     print("Saved /app/test_set/phase3_manifest.jsonl")
 
 if __name__ == "__main__":
     main()
+

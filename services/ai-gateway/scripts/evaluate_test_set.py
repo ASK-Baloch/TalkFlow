@@ -1,10 +1,9 @@
-import os
+# ruff: noqa
 import glob
-import json
+import os
 import re
-from dataclasses import dataclass
 import sys
-import numpy as np
+from dataclasses import dataclass
 
 try:
     import nemo.collections.asr as nemo_asr
@@ -158,7 +157,7 @@ def run_eval(test_set_dir: str):
         print(f"Transcribing {file} (Expected: {expected_text})...")
         
         import soundfile as sf
-        audio, sr = sf.read(file)
+        audio, _sr = sf.read(file)
         
         if len(audio) == 0:
             print("Empty audio file!")
@@ -198,9 +197,10 @@ def run_eval(test_set_dir: str):
                 category_correct[k] = category_correct.get(k, 0) + 1
                 
     print("\n\n=== SUMMARY ACCURACY ===")
-    for k in category_totals.keys():
+    for k in category_totals:
         acc = (category_correct.get(k, 0) / category_totals[k]) * 100
         print(f"{k.upper()}: {acc:.1f}% ({category_correct.get(k, 0)}/{category_totals[k]})")
         
 if __name__ == "__main__":
     run_eval("/app/test_set")
+

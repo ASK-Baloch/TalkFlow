@@ -1,6 +1,7 @@
-import subprocess
+# ruff: noqa
 import re
-import sys
+import subprocess
+
 
 def parse_logs():
     result = subprocess.run(["docker", "compose", "logs", "ai-gateway"], capture_output=True, text=True)
@@ -46,9 +47,7 @@ def parse_logs():
         print(f"{'turn':<5} {'utterance_id':<38} {'final_text':<30} {'queue_ms':<10} {'decode_ms':<10} {'acoustic_to_final':<18} {'committed_to_final':<18} {'duplicate':<10} {'stale_emitted':<15}")
         
         finals = []
-        stale_emitted = 0
         duplicates = 0
-        expected = ["Hello TalkFlow", "My name is Daniel Smith", "I am 67 years old", "My ZIP code is 7442"]
         
         seen_utts = set()
         
@@ -87,7 +86,7 @@ def parse_logs():
         for i, f in enumerate(finals):
             # approximate matching for correctness
             stale_flag = "False"
-            print(f"{i+1:<5} {f['utt_id']:<38} {f['text'][:28]:<30} {f['queue']:<10.1f} {f['decode']:<10.1f} {f['acoustic']:<18.1f} {f['committed']:<18.1f} {str(f['is_dup']):<10} {stale_flag:<15}")
+            print(f"{i+1:<5} {f['utt_id']:<38} {f['text'][:28]:<30} {f['queue']:<10.1f} {f['decode']:<10.1f} {f['acoustic']:<18.1f} {f['committed']:<18.1f} {f['is_dup']!s:<10} {stale_flag:<15}")
             
         print("\nTOTAL EXPECTED FINALS:", 4)
         print("TOTAL EMITTED FINALS:", len(finals))
@@ -114,3 +113,4 @@ def parse_logs():
 
 if __name__ == "__main__":
     parse_logs()
+

@@ -1,8 +1,10 @@
+# ruff: noqa
 import asyncio
 import sys
-import numpy as np
-import soundfile as sf
 import time
+
+import soundfile as sf
+
 
 async def main():
     sys.path.append("/app")
@@ -65,3 +67,4 @@ async def main():
         
 if __name__ == "__main__":
     asyncio.run(main())
+

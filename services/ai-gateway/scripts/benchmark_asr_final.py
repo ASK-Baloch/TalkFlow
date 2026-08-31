@@ -1,11 +1,12 @@
-import os
+# ruff: noqa
 import csv
-import time
-import numpy as np
-import difflib
-import torch
 import gc
+import time
+
+import numpy as np
+import torch
 from omegaconf import OmegaConf
+
 
 def calculate_wer(reference, hypothesis):
     ref_words = reference.lower().replace('.', '').replace(',', '').split()
@@ -243,7 +244,7 @@ def main():
             if i < len(model_results[m]):
                 print(f"{m}:")
                 print(f"    \"{model_results[m][i]['hyp']}\"")
-        print("")
+        print()
         
     print("\n==================================================")
     print("7-8. CRITICAL DOMAIN SCOREBOARD (RAW TRANSCRIPT)")
@@ -311,3 +312,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

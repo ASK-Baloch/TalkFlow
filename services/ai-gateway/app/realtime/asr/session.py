@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass, field
 from time import perf_counter_ns
 
 from .audio import (
@@ -11,7 +12,8 @@ from .buffer import (
     AudioRingBuffer,
     UtteranceBuffer,
 )
-from dataclasses import dataclass, field
+from .types import TranscriptEvent
+
 
 @dataclass
 class UtteranceState:
@@ -19,7 +21,7 @@ class UtteranceState:
     revision: int = 0
     finalized: bool = False
     tentative_inflight: bool = False
-    tentative_result: 'TranscriptEvent | None' = None
+    tentative_result: TranscriptEvent | None = None
     final_emitted: bool = False
     cancelled: bool = False
     created_ns: int = field(default_factory=perf_counter_ns)
@@ -138,13 +140,14 @@ class AsrSession:
             active.speech_end_ns = perf_counter_ns()
             
         import os
+
         import soundfile as sf
         os.makedirs("/app/test_set", exist_ok=True)
         if self.active_utterance_id:
             try:
                 sf.write(f"/app/test_set/{self.active_utterance_id}_8k.wav", self.utterance_8k.snapshot(), self.input_sample_rate)
                 sf.write(f"/app/test_set/{self.active_utterance_id}_16k.wav", self.utterance.snapshot(), self.sample_rate)
-            except Exception as e:
+            except OSError as e:
                 print(f"Failed to save audio for utterance {self.active_utterance_id}: {e}")
 
     def reset_utterance(self):
@@ -160,8 +163,8 @@ class AsrSession:
         if self.asr_stream:
             try:
                 self.asr_stream.close()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                print(f"Error closing asr stream: {e}")
             self.asr_stream = None
 
     def get_utterance(self, utterance_id: str) -> UtteranceState | None:

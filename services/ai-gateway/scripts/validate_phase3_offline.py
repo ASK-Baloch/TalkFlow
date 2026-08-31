@@ -1,11 +1,10 @@
-import os
+# ruff: noqa
 import csv
-import time
+
 import numpy as np
-import gc
-import torch
 from faster_whisper import WhisperModel
 from semantic_extractor import SemanticExtractor
+
 
 def calculate_wer(reference, hypothesis):
     ref_words = reference.lower().replace('.', '').replace(',', '').split()
@@ -65,16 +64,12 @@ def compute_semantic_metrics(results):
         # Confusions
         if expected_semantics["medicare"] or expected_semantics["medicaid"]:
             medicare_medicaid_confusion["eligible"] += 1
-            if expected_semantics["medicare"] and not expected_semantics["medicaid"] and hyp_semantics["medicaid"] and not hyp_semantics["medicare"]:
-                medicare_medicaid_confusion["count"] += 1
-            elif expected_semantics["medicaid"] and not expected_semantics["medicare"] and hyp_semantics["medicare"] and not hyp_semantics["medicaid"]:
+            if expected_semantics["medicare"] and not expected_semantics["medicaid"] and hyp_semantics["medicaid"] and not hyp_semantics["medicare"] or expected_semantics["medicaid"] and not expected_semantics["medicare"] and hyp_semantics["medicare"] and not hyp_semantics["medicaid"]:
                 medicare_medicaid_confusion["count"] += 1
                 
         if expected_semantics["part_a"] or expected_semantics["part_b"]:
             parta_partb_confusion["eligible"] += 1
-            if expected_semantics["part_a"] and not expected_semantics["part_b"] and hyp_semantics["part_b"] and not hyp_semantics["part_a"]:
-                parta_partb_confusion["count"] += 1
-            elif expected_semantics["part_b"] and not expected_semantics["part_a"] and hyp_semantics["part_a"] and not hyp_semantics["part_b"]:
+            if expected_semantics["part_a"] and not expected_semantics["part_b"] and hyp_semantics["part_b"] and not hyp_semantics["part_a"] or expected_semantics["part_b"] and not expected_semantics["part_a"] and hyp_semantics["part_a"] and not hyp_semantics["part_b"]:
                 parta_partb_confusion["count"] += 1
         
         for e in entities:
@@ -199,3 +194,4 @@ def main():
     
 if __name__ == "__main__":
     main()
+

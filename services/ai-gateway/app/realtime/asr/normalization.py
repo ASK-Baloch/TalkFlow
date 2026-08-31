@@ -1,6 +1,5 @@
-import re
 import logging
-from typing import Tuple, List, Dict
+import re
 from functools import lru_cache
 
 logger = logging.getLogger("talkflow.asr.normalization")
@@ -40,7 +39,7 @@ class DomainNormalizer:
         # States
         self.state_terms = self.vocab.get("states", {})
 
-    def normalize(self, text: str, context_hints: list[str] | None = None) -> Tuple[str, List[Dict[str, str]]]:
+    def normalize(self, text: str, context_hints: list[str] | None = None) -> tuple[str, list[dict[str, str]]]:
         if not text:
             return text, []
             
@@ -80,16 +79,16 @@ class DomainNormalizer:
             canonical = entry["canonical"]
             
             # Keep track of matches to log them
-            def replace_and_log(match):
+            def replace_and_log(match, canonical_inner=canonical):
                 matched_str = match.group(0)
                 # Only log if it's an actual correction (case or text differs)
-                if matched_str != canonical:
+                if matched_str != canonical_inner:
                     corrections.append({
                         "original": matched_str,
-                        "corrected": canonical,
+                        "corrected": canonical_inner,
                         "method": "domain_alias"
                     })
-                return canonical
+                return canonical_inner
                 
             text = pattern.sub(replace_and_log, text)
             

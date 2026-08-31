@@ -1,17 +1,18 @@
+# ruff: noqa
 import asyncio
-import time
+import glob
 import os
 import sys
-import glob
-import numpy as np
+import time
 import wave
+
+import numpy as np
 
 # Adjust path to import from app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.realtime.asr.nemo_provider import NemoProvider
-from app.realtime.asr.normalization import normalize_transcript
-from app.core.config import get_asr_vocabulary
+
 
 def read_wav(path: str) -> np.ndarray:
     with wave.open(path, 'rb') as wf:
@@ -34,7 +35,7 @@ def simulate_streaming(provider, audio, chunk_ms):
         
         t0 = time.time()
         # Force it to process the partial chunk immediately if it reached chunk size
-        res = stream.get_partial()
+        stream.get_partial()
         latencies.append(time.time() - t0)
         
     final_res = stream.finalize()
@@ -105,3 +106,4 @@ async def run_benchmark(audio_dir: str):
 if __name__ == "__main__":
     audio_dir = sys.argv[1] if len(sys.argv) > 1 else "/app/debug"
     asyncio.run(run_benchmark(audio_dir))
+

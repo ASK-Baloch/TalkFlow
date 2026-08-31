@@ -1,12 +1,15 @@
+# ruff: noqa
 import os
 import socket
-import time
-import uuid
-import soundfile as sf
-import numpy as np
-from gtts import gTTS
 import subprocess
 import sys
+import time
+import uuid
+
+import numpy as np
+import soundfile as sf
+from gtts import gTTS
+
 
 def send_audiosocket(sock, msg_type, payload=b""):
     if len(payload) > 65535:
@@ -25,7 +28,7 @@ def generate_audio(text, temp_wav):
     tts.save(temp_mp3)
     # convert using ffmpeg
     subprocess.run(["ffmpeg", "-y", "-i", temp_mp3, "-ar", "8000", "-ac", "1", temp_wav], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    audio, sr = sf.read(temp_wav)
+    audio, _sr = sf.read(temp_wav)
     return audio
 
 def main():
@@ -85,3 +88,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
