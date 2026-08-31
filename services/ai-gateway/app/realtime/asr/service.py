@@ -23,6 +23,8 @@ class AsrService:
         self.settings = settings
 
         self.sessions = {}
+        
+        self.is_ready = False
 
         self.provider = None
         self.scheduler = None
@@ -84,6 +86,7 @@ class AsrService:
             logger.info("ASR warmup pass %d completed in %.1fms", i, (t1 - t0) / 1_000_000)
 
         logger.info("ASR ready=true")
+        self.is_ready = True
 
     async def attach_session(self, connection_id: str) -> None:
         if not self.enabled:

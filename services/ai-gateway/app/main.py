@@ -67,17 +67,20 @@ async def health():
 @app.get("/ready")
 async def ready():
     vad_ready = not vad_service.enabled or vad_service.pool.ready
+    asr_ready = not asr_service.enabled or getattr(asr_service, "is_ready", False)
 
-    if not vad_ready:
+    if not vad_ready or not asr_ready:
         return {
             "status": "not_ready",
-            "vad": "not_ready",
+            "vad": "ready" if vad_ready else "not_ready",
+            "asr": "ready" if asr_ready else "not_ready",
         }
 
     return {
         "status": "ready",
         "audiosocket": "ready",
         "vad": ("ready" if vad_service.enabled else "disabled"),
+        "asr": ("ready" if asr_service.enabled else "disabled"),
     }
 
 
@@ -115,13 +118,16 @@ async def vad_status():
 async def asr_status():
     return {
         "enabled": asr_service.enabled,
+        "ready": asr_service.enabled and asr_service.scheduler is not None,
         "provider": "faster_whisper",
         "model": asr_service.settings.asr_model if asr_service.enabled else None,
         "device": asr_service.settings.asr_device if asr_service.enabled else None,
-        "active_sessions": asr_metrics.active_sessions,
+        "compute_type": asr_service.settings.asr_compute_type if asr_service.enabled else None,
         "queue_size": asr_service.scheduler.queue.qsize()
         if asr_service.enabled and asr_service.scheduler
         else 0,
+        "workers": asr_service.settings.asr_workers if asr_service.enabled else 0,
+        "active_sessions": asr_metrics.active_sessions,
         "partials_emitted": asr_metrics.partials_emitted,
         "finals_emitted": asr_metrics.finals_emitted,
         "stale_partials_dropped": asr_metrics.stale_partials_dropped,
