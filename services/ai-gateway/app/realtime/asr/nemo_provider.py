@@ -19,11 +19,6 @@ class NemoStream(AsrStream):
         self.model = provider.model
         
         self._chunks = []
-        self._partial_hyp = None
-        self._accumulated_text = ""
-        
-        # Target ~320ms chunks (16000 * 0.320 = 5120 samples)
-        self._chunk_samples = 5120
         
     def push_audio(self, audio: np.ndarray) -> None:
         if audio.size > 0:
@@ -31,58 +26,22 @@ class NemoStream(AsrStream):
             
     def get_partial(self) -> AsrDecodeResult:
         if not self._chunks:
-            text = self._accumulated_text
-            if self._partial_hyp:
-                hyp = self._partial_hyp[0] if isinstance(self._partial_hyp, tuple) else self._partial_hyp
-                if isinstance(hyp, list) and len(hyp) > 0:
-                    text = (text + " " + hyp[0].text).strip()
-            return AsrDecodeResult(text=text, language="en", language_probability=1.0)
+            return AsrDecodeResult(text="", language="en", language_probability=1.0)
             
         audio = np.concatenate(self._chunks)
         
-        while len(audio) >= self._chunk_samples:
-            chunk = audio[:self._chunk_samples]
-            audio = audio[self._chunk_samples:]
-            
-            # Process the chunk with the current partial hypothesis state
-            self._partial_hyp = self.provider.transcribe_chunk(
-                chunk,
-                partial_hypothesis=self._partial_hyp
-            )
-            
-        # Save remaining audio
-        self._chunks = [audio] if audio.size > 0 else []
-        
-        # Get the current text
-        text = self._accumulated_text
-        if self._partial_hyp:
-            hyp = self._partial_hyp[0] if isinstance(self._partial_hyp, tuple) else self._partial_hyp
-            if isinstance(hyp, list) and len(hyp) > 0:
-                text = (text + " " + hyp[0].text).strip()
-                
-        return AsrDecodeResult(
-            text=text, 
-            language="en", 
-            language_probability=1.0
-        )
+        # Parakeet Unified EN 0.6B is not a cache-aware streaming model.
+        # It does not maintain acoustic encoder state across calls.
+        # We process the entire accumulated buffer on each partial request.
+        return self.provider.transcribe(audio, beam_size=self.beam_size, context_hints=self.context_hints)
         
     def finalize(self) -> AsrDecodeResult:
-        # Process any remaining audio smaller than chunk_samples
-        if self._chunks:
-            audio = np.concatenate(self._chunks)
-            if len(audio) > 0:
-                self._partial_hyp = self.provider.transcribe_chunk(
-                    audio,
-                    partial_hypothesis=self._partial_hyp
-                )
-        
         res = self.get_partial()
         self.close()
         return res
         
     def close(self) -> None:
         self._chunks.clear()
-        self._partial_hyp = None
 
 
 class NemoProvider(AsrProvider):
@@ -121,37 +80,6 @@ class NemoProvider(AsrProvider):
         logger.info("NeMo ASR model ready")
 
     def open_stream(self, *, beam_size: int, context_hints: list[str] | None = None) -> AsrStream:
-        boost_enabled = os.getenv("ASR_PHRASE_BOOST_ENABLED", "true").lower() == "true"
-        
-        if boost_enabled and context_hints and len(context_hints) > 0:
-            boost_score = float(os.getenv("ASR_PHRASE_BOOST_SCORE", "10.0"))
-            try:
-                import copy
-                from omegaconf import open_dict
-                
-                # Clone default cfg to preserve native pad/blank IDs
-                cfg = copy.deepcopy(self.model.cfg.decoding)
-                with open_dict(cfg):
-                    strategy = cfg.strategy
-                    if not hasattr(cfg, strategy):
-                        setattr(cfg, strategy, {})
-                    
-                    strategy_cfg = getattr(cfg, strategy)
-                    strategy_cfg.word_vocab = context_hints
-                    strategy_cfg.word_score = boost_score
-                    
-                self.model.change_decoding_strategy(cfg)
-                logger.info("ASR phrase boosting ACTIVE for %d contexts (score=%.1f)", len(context_hints), boost_score)
-            except Exception as e:
-                logger.error("Failed to apply RNNT phrase boosting: %s", e)
-                raise RuntimeError(f"Phrase boosting initialization failed: {e}") from e
-        else:
-            try:
-                # Reset to raw strategy if no hints exist
-                self.model.change_decoding_strategy(self.model.cfg.decoding)
-            except Exception:
-                pass
-                
         return NemoStream(self, beam_size, context_hints)
 
     def transcribe(
@@ -165,32 +93,67 @@ class NemoProvider(AsrProvider):
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
             
         try:
-            results = self.model.transcribe(audio=audio)
+            # Change decoding strategy if needed
+            from omegaconf import OmegaConf, open_dict
+            
+            if not hasattr(self, '_current_beam_size'):
+                self._current_beam_size = None
+                self._current_strategy = None
+                
+            if beam_size > 1:
+                target_strategy = "beam"
+            else:
+                target_strategy = "greedy_batch"
+                
+            if self._current_beam_size != beam_size or self._current_strategy != target_strategy:
+                cfg = OmegaConf.create(OmegaConf.to_container(self.model.cfg.decoding, resolve=True))
+                
+                if target_strategy == "beam":
+                    cfg.strategy = "beam"
+                    with open_dict(cfg):
+                        if not hasattr(cfg, "beam"):
+                            cfg.beam = OmegaConf.create({})
+                        cfg.beam.beam_size = beam_size
+                        cfg.preserve_word_confidence = True
+                else:
+                    cfg.strategy = "greedy_batch"
+                    
+                self.model.change_decoding_strategy(cfg)
+                self._current_beam_size = beam_size
+                self._current_strategy = target_strategy
+            
+            import hashlib
+            cfg_yaml = OmegaConf.to_yaml(self.model.cfg.decoding)
+            cfg_hash = hashlib.sha256(cfg_yaml.encode()).hexdigest()[:8]
+            logger.info("Transcribe START: strategy=%s, beam=%s, config_hash=%s", self._current_strategy, self._current_beam_size, cfg_hash)
+            
+            results = self.model.transcribe(audio=audio, return_hypotheses=(beam_size > 1))
+            
+            logger.info("Transcribe END: strategy=%s, beam=%s, config_hash=%s", self._current_strategy, self._current_beam_size, cfg_hash)
             
             if not results:
-                text = ""
+                text_obj = ""
             else:
-                if isinstance(results, tuple) and len(results) > 0:
-                    transcripts = results[0]
-                else:
-                    transcripts = results
+                text_obj = results
+                # Recursively unwrap lists and tuples to get the first element
+                while isinstance(text_obj, (list, tuple)) and len(text_obj) > 0:
+                    text_obj = text_obj[0]
                     
-                if isinstance(transcripts, list) and len(transcripts) > 0:
-                    text = transcripts[0]
-                else:
-                    text = transcripts
-                    
-            if hasattr(text, 'text'):
-                text = text.text
-            elif hasattr(text, 'text_no_timesteps'):
-                text = text.text_no_timesteps
-            else:
-                text = str(text)
+            if hasattr(text_obj, 'text'):
+                confidence = None
+                if hasattr(text_obj, 'word_confidence'):
+                    confidence = text_obj.word_confidence
                 
-            text = text.strip()
+                text_str = text_obj.text
+            elif hasattr(text_obj, 'text_no_timesteps'):
+                text_str = text_obj.text_no_timesteps
+            else:
+                text_str = str(text_obj)
+                
+            text_str = text_str.strip()
             
             return AsrDecodeResult(
-                text=text,
+                text=text_str,
                 language="en", 
                 language_probability=1.0,
             )

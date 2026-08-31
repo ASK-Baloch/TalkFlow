@@ -6,12 +6,15 @@ from time import monotonic_ns
 class VadState(str, Enum):
     SILENCE = "silence"
     SPEAKING = "speaking"
+    PENDING_END = "pending_end"
 
 
 class VadEventType(str, Enum):
     SPEECH_START = "speech_start"
     SPEECH_END = "speech_end"
     MAX_SPEECH_REACHED = "max_speech_reached"
+    SPEECH_PENDING_END = "speech_pending_end"
+    SPEECH_RESUMED = "speech_resumed"
 
 
 @dataclass(slots=True)

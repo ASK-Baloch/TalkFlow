@@ -79,20 +79,30 @@ class FasterWhisperProvider(AsrProvider):
         self.word_timestamps = word_timestamps
         self.initial_prompt = initial_prompt
 
+        import time
+        import torch
+        
+        if device == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("CUDA was requested but is not available.")
+            
         logger.info(
-            ("Loading Faster-Whisper model=%s device=%s compute_type=%s"),
+            ("Loading Faster-Whisper model=%s device=%s (CUDA available=%s) compute_type=%s"),
             model_name,
             device,
+            torch.cuda.is_available(),
             compute_type,
         )
 
+        t0 = time.perf_counter_ns()
         self.model = WhisperModel(
             model_name,
             device=device,
             compute_type=compute_type,
         )
+        t1 = time.perf_counter_ns()
+        load_time_ms = (t1 - t0) / 1_000_000
 
-        logger.info("Faster-Whisper model ready")
+        logger.info("Faster-Whisper model ready in %.1fms (CTranslate2)", load_time_ms)
         
     def open_stream(self, *, beam_size: int, context_hints: list[str] | None = None) -> AsrStream:
         return FasterWhisperStream(self, beam_size, context_hints)

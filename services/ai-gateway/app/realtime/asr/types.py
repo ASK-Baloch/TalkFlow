@@ -5,6 +5,7 @@ from time import perf_counter_ns
 
 class TranscriptType(str, Enum):
     PARTIAL = "partial"
+    FINAL_TENTATIVE = "final_tentative"
     FINAL = "final"
 
 
@@ -12,21 +13,25 @@ class TranscriptType(str, Enum):
 class TranscriptEvent:
     connection_id: str
     session_uuid: str | None
-
     utterance_id: str
-
     transcript_type: TranscriptType
-
-    text: str
-
     revision: int
-
+    raw_text: str
+    normalized_text: str
+    text: str
     audio_duration_ms: float
-
     decode_ms: float
     queue_wait_ms: float
+    normalization_ms: float
     created_ns: int
-    normalization_ms: float = 0.0
+
+    # Additional detailed latency fields
+    job_created_ns: int = 0
+    worker_start_ns: int = 0
+    decode_start_ns: int = 0
+    decode_done_ns: int = 0
+    emit_ns: int = 0
+    acoustic_end_ns: int = 0
 
     @classmethod
     def create(
@@ -36,7 +41,8 @@ class TranscriptEvent:
         session_uuid: str | None,
         utterance_id: str,
         transcript_type: TranscriptType,
-        text: str,
+        raw_text: str,
+        normalized_text: str,
         revision: int,
         audio_duration_ms: float,
         decode_ms: float,
@@ -48,7 +54,9 @@ class TranscriptEvent:
             session_uuid=session_uuid,
             utterance_id=utterance_id,
             transcript_type=transcript_type,
-            text=text.strip(),
+            raw_text=raw_text.strip(),
+            normalized_text=normalized_text.strip(),
+            text=normalized_text.strip(),
             revision=revision,
             audio_duration_ms=audio_duration_ms,
             decode_ms=decode_ms,

@@ -53,7 +53,7 @@ class VadDetector:
 
     @property
     def speaking(self) -> bool:
-        return self.state == VadState.SPEAKING
+        return self.state in (VadState.SPEAKING, VadState.PENDING_END)
 
     def process_probability(
         self,
@@ -76,9 +76,17 @@ class VadDetector:
                 )
             )
 
-        else:
+        elif self.state == VadState.SPEAKING:
             events.extend(
                 self._process_speaking(
+                    probability=probability,
+                    chunk_end=chunk_end,
+                )
+            )
+            
+        elif self.state == VadState.PENDING_END:
+            events.extend(
+                self._process_pending_end(
                     probability=probability,
                     chunk_end=chunk_end,
                 )
@@ -145,10 +153,64 @@ class VadDetector:
                 )
 
                 self._return_to_silence()
-
                 return [event]
 
         if probability < self.config.neg_threshold:
+            # We instantly enter PENDING_END upon dropping below negative threshold
+            self.state = VadState.PENDING_END
+            self._silence_candidate_samples = self.config.chunk_samples
+            
+            return [
+                VadEvent.create(
+                    event_type=VadEventType.SPEECH_PENDING_END,
+                    sample_index=chunk_end - self.config.chunk_samples,
+                    probability=probability,
+                    detection_delay_ms=0.0,
+                )
+            ]
+
+        return []
+        
+    def _process_pending_end(
+        self,
+        *,
+        probability: float,
+        chunk_end: int,
+    ) -> list[VadEvent]:
+        if self._speech_started_sample is not None:
+            speech_samples = chunk_end - self._speech_started_sample
+            max_samples = self.config.sample_rate * self.config.max_speech_seconds
+
+            if speech_samples >= max_samples:
+                event = VadEvent.create(
+                    event_type=VadEventType.MAX_SPEECH_REACHED,
+                    sample_index=chunk_end,
+                    probability=probability,
+                    detection_delay_ms=0.0,
+                )
+                self._return_to_silence()
+                return [event]
+                
+        if probability >= self.config.threshold:
+            # Speech has resumed before the hangover expired
+            self.state = VadState.SPEAKING
+            
+            silence_ms = (
+                self._silence_candidate_samples / self.config.sample_rate * 1000.0
+            )
+            
+            self._silence_candidate_samples = 0
+            
+            return [
+                VadEvent.create(
+                    event_type=VadEventType.SPEECH_RESUMED,
+                    sample_index=chunk_end,
+                    probability=probability,
+                    detection_delay_ms=silence_ms,
+                )
+            ]
+            
+        else:
             self._silence_candidate_samples += self.config.chunk_samples
 
             silence_ms = (
@@ -166,12 +228,8 @@ class VadDetector:
                 )
 
                 self._return_to_silence()
-
                 return [event]
-
-        else:
-            self._silence_candidate_samples = 0
-
+                
         return []
 
     def _return_to_silence(self) -> None:
