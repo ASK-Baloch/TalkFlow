@@ -10,7 +10,7 @@ def test_faster_whisper_smoke():
     settings = get_settings()
 
     provider = FasterWhisperProvider(
-        model_name=settings.asr_model,
+        model_name="tiny.en",
         device="cpu",
         compute_type="int8",
         language=settings.asr_language,
