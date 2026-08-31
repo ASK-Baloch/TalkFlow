@@ -289,22 +289,27 @@ class AsrService:
             # Save first 5 validation cases
             if not hasattr(self, '_trim_validation_count'):
                 self._trim_validation_count = 0
+            has_sf = False
             if self._trim_validation_count < 5:
-                import os
-
-                import soundfile as sf
-                os.makedirs("/app/test_set/trim_validation", exist_ok=True)
                 try:
-                    sf.write(f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav", audio, sample_rate)
-                except Exception as e:
-                    logger.warning(f"Failed to save debug untrimmed file: {e}")
+                    import os
+
+                    import soundfile as sf
+                    os.makedirs("/app/test_set/trim_validation", exist_ok=True)
+                    has_sf = True
+                    try:
+                        sf.write(f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav", audio, sample_rate)
+                    except Exception as e:
+                        logger.warning(f"Failed to save debug untrimmed file: {e}")
+                except ImportError:
+                    pass
             
             if end_trim_idx > 0:
                 trimmed_audio = audio[start_idx:-end_trim_idx]
             else:
                 trimmed_audio = audio[start_idx:]
                 
-            if self._trim_validation_count < 5:
+            if self._trim_validation_count < 5 and has_sf:
                 try:
                     sf.write(f"/app/test_set/trim_validation/trimmed_{self._trim_validation_count}.wav", trimmed_audio, sample_rate)
                 except Exception as e:

@@ -11,8 +11,8 @@ def test_faster_whisper_smoke():
 
     provider = FasterWhisperProvider(
         model_name=settings.asr_model,
-        device="cuda",
-        compute_type=settings.asr_compute_type,
+        device="cpu",
+        compute_type="int8",
         language=settings.asr_language,
         condition_on_previous_text=False,
         word_timestamps=False,
