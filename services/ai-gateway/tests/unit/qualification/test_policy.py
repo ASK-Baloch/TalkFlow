@@ -31,7 +31,7 @@ def test_age_disqualification():
     assert result.reason == "age_below_minimum"
 
 
-def test_part_a_disqualification():
+def test_part_a_false_does_not_disqualify():
     result = create_policy().evaluate(
         LeadData(
             consent=True,
@@ -40,16 +40,28 @@ def test_part_a_disqualification():
         )
     )
 
-    assert result.complete is True
-    assert result.qualified is False
+    assert result.complete is False
 
 
-def test_part_b_disqualification():
+def test_part_b_false_does_not_disqualify_if_part_a_true():
     result = create_policy().evaluate(
         LeadData(
             consent=True,
             age=70,
             medicare_part_a=True,
+            medicare_part_b=False,
+        )
+    )
+
+    assert result.complete is False
+
+
+def test_both_parts_false_disqualifies():
+    result = create_policy().evaluate(
+        LeadData(
+            consent=True,
+            age=70,
+            medicare_part_a=False,
             medicare_part_b=False,
         )
     )

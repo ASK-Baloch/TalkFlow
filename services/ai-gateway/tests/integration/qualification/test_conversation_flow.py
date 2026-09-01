@@ -34,10 +34,6 @@ def test_realistic_medicare_flow():
         ),
         (
             "Yes, I have Medicare Part A.",
-            ActionType.ASK_PART_B,
-        ),
-        (
-            "Yes, I also have Part B.",
             ActionType.ASK_ZIP,
         ),
     ]
@@ -63,6 +59,6 @@ def test_realistic_medicare_flow():
 
     assert session.lead.medicare_part_a is True
 
-    assert session.lead.medicare_part_b is True
+    assert session.lead.medicare_part_b is None
 
     assert session.lead.zip_code == "75001"

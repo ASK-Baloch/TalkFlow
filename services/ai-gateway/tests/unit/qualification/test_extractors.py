@@ -60,13 +60,13 @@ def test_direct_name_when_expected():
     )
 
 
-def test_single_word_not_accepted_as_full_name():
+def test_single_word_accepted_as_full_name():
     assert (
         extract_name(
             "Daniel",
             state=(ConversationState.COLLECTING_NAME),
         )
-        is None
+        == "Daniel"
     )
 
 

@@ -9,8 +9,8 @@ def test_valid_name():
     assert validate_name("Daniel Smith")
 
 
-def test_invalid_single_name():
-    assert not validate_name("Daniel")
+def test_valid_single_name():
+    assert validate_name("Daniel")
 
 
 def test_valid_age():
