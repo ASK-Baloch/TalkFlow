@@ -371,10 +371,11 @@ def extract_name(
         return None
 
     import re
+
     # Strip correction words from the beginning to allow prefix matching
     correction_match = re.match(r"^(?:actually|sorry|correction|no)\s+", normalized)
     if correction_match:
-        normalized = normalized[correction_match.end():].strip()
+        normalized = normalized[correction_match.end() :].strip()
 
     candidate: str | None = None
 
@@ -427,24 +428,29 @@ def extract_name(
         return None
 
     for part in parts:
-        cleaned = part.replace(
-            "'",
-            "",
-        ).replace(
-            "-",
-            "",
-        ).replace(
-            ".",
-            "",
-        ).replace(
-            ",",
-            "",
+        cleaned = (
+            part.replace(
+                "'",
+                "",
+            )
+            .replace(
+                "-",
+                "",
+            )
+            .replace(
+                ".",
+                "",
+            )
+            .replace(
+                ",",
+                "",
+            )
         )
 
         if not cleaned.isalpha():
             return None
 
-    # Do not auto-title case if it's already mixed case, 
+    # Do not auto-title case if it's already mixed case,
     # but the existing normalize_name does title().
     # The user tests might expect exactly what normalize_name does.
     return normalize_name(candidate)
@@ -468,7 +474,9 @@ def extract_part_a(
         return None
 
     if not mentions_part_a:
-        mentions_part_b = bool(re.search(r"\b(?:part\s+b|medicare\s+part\s+b)\b", normalized))
+        mentions_part_b = bool(
+            re.search(r"\b(?:part\s+b|medicare\s+part\s+b)\b", normalized)
+        )
         if mentions_part_b:
             return None
 
@@ -508,7 +516,9 @@ def extract_part_b(
         return None
 
     if not mentions_part_b:
-        mentions_part_a = bool(re.search(r"\b(?:part\s+a|medicare\s+part\s+a)\b", normalized))
+        mentions_part_a = bool(
+            re.search(r"\b(?:part\s+a|medicare\s+part\s+a)\b", normalized)
+        )
         if mentions_part_a:
             return None
 
@@ -573,10 +583,7 @@ def extract_fields(
     if (
         "part a" in normalized
         and "part b" in normalized
-        and (
-            "both" in normalized
-            or "have part a and part b" in normalized
-        )
+        and ("both" in normalized or "have part a and part b" in normalized)
     ):
         answer = extract_yes_no(normalized)
 

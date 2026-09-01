@@ -58,7 +58,7 @@ class MedicareQualificationPolicy:
         medicare_satisfied = (
             lead.medicare_part_a is True or lead.medicare_part_b is True
         )
-        
+
         medicare_resolved = medicare_satisfied or (
             lead.medicare_part_a is False and lead.medicare_part_b is False
         )
@@ -79,10 +79,7 @@ class MedicareQualificationPolicy:
                 reason=None,
             )
 
-        qualified = (
-            lead.age >= self.min_age
-            and medicare_satisfied
-        )
+        qualified = lead.age >= self.min_age and medicare_satisfied
 
         return QualificationPolicyResult(
             complete=True,

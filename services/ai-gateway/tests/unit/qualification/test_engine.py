@@ -306,11 +306,8 @@ def test_correction_overwrites_field():
 
     engine.process_transcript(session=session, text="Yes.")
     engine.process_transcript(session=session, text="Alex.")
-    
-    engine.process_transcript(
-        session=session, 
-        text="Actually my name is Daniel Smith."
-    )
+
+    engine.process_transcript(session=session, text="Actually my name is Daniel Smith.")
 
     assert session.lead.full_name == "Daniel Smith"
 
@@ -321,11 +318,8 @@ def test_part_b_does_not_overwrite_name_when_existing():
 
     engine.process_transcript(session=session, text="Yes.")
     engine.process_transcript(session=session, text="Alex.")
-    
-    engine.process_transcript(
-        session=session, 
-        text="I have Part B."
-    )
+
+    engine.process_transcript(session=session, text="I have Part B.")
 
     assert session.lead.full_name == "Alex"
     assert session.lead.medicare_part_b is True
@@ -339,7 +333,7 @@ def test_observed_production_sequence():
     engine.process_transcript(session=session, text="My name is Alex.")
     engine.process_transcript(session=session, text="My age is 67.")
     engine.process_transcript(session=session, text="My zip code is 74423.")
-    
+
     engine.process_transcript(session=session, text="I have Part B.")
 
     assert session.lead.consent is True
@@ -353,105 +347,110 @@ def test_observed_production_sequence():
     assert session.status == QualificationStatus.QUALIFIED
     assert session.transcript_count == 5
 
+
 def test_medicare_part_a_true_skips_part_b():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    
+
     # State should become COLLECTING_PART_A
-    engine.process_transcript(session=session, text='Yes I consent')
-    
-    result = engine.process_transcript(session=session, text='I have Part A')
-    
+    engine.process_transcript(session=session, text="Yes I consent")
+
+    result = engine.process_transcript(session=session, text="I have Part A")
+
     assert session.lead.medicare_part_a is True
     assert session.lead.medicare_part_b is None
     assert result.action.action_type == ActionType.ASK_ZIP
 
+
 def test_medicare_part_a_false_asks_part_b():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    
-    engine.process_transcript(session=session, text='Yes I consent')
-    
-    result = engine.process_transcript(session=session, text='I do not have Part A')
-    
+
+    engine.process_transcript(session=session, text="Yes I consent")
+
+    result = engine.process_transcript(session=session, text="I do not have Part A")
+
     assert session.lead.medicare_part_a is False
     assert result.action.action_type == ActionType.ASK_PART_B
+
 
 def test_medicare_part_a_false_part_b_true_satisfies():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    session.lead.zip_code = '74423'
-    
-    engine.process_transcript(session=session, text='Yes I consent')
-    engine.process_transcript(session=session, text='No Part A')
-    
+    session.lead.zip_code = "74423"
+
+    engine.process_transcript(session=session, text="Yes I consent")
+    engine.process_transcript(session=session, text="No Part A")
+
     assert session.state == ConversationState.COLLECTING_PART_B
-    engine.process_transcript(session=session, text='I have Part B')
-    
+    engine.process_transcript(session=session, text="I have Part B")
+
     assert session.lead.medicare_part_a is False
     assert session.lead.medicare_part_b is True
     assert session.state == ConversationState.QUALIFIED
+
 
 def test_medicare_part_a_null_part_b_true_satisfies():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    session.lead.zip_code = '74423'
-    
-    engine.process_transcript(session=session, text='Yes I consent')
-    
-    engine.process_transcript(session=session, text='I have Part B')
-    
+    session.lead.zip_code = "74423"
+
+    engine.process_transcript(session=session, text="Yes I consent")
+
+    engine.process_transcript(session=session, text="I have Part B")
+
     assert session.lead.medicare_part_a is None
     assert session.lead.medicare_part_b is True
     assert session.state == ConversationState.QUALIFIED
 
+
 def test_medicare_both_false_disqualifies():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    session.lead.zip_code = '74423'
-    
-    engine.process_transcript(session=session, text='Yes I consent')
-    engine.process_transcript(session=session, text='No Part A')
-    engine.process_transcript(session=session, text='No Part B')
-    
+    session.lead.zip_code = "74423"
+
+    engine.process_transcript(session=session, text="Yes I consent")
+    engine.process_transcript(session=session, text="No Part A")
+    engine.process_transcript(session=session, text="No Part B")
+
     assert session.lead.medicare_part_a is False
     assert session.lead.medicare_part_b is False
     assert session.state == ConversationState.DISQUALIFIED
 
+
 def test_medicare_both_true_satisfies():
     engine = create_engine()
     session = create_session()
-    
+
     session.lead.consent = True
-    session.lead.full_name = 'Alex'
+    session.lead.full_name = "Alex"
     session.lead.age = 67
-    session.lead.zip_code = '74423'
-    
-    engine.process_transcript(session=session, text='Yes I consent')
-    
-    engine.process_transcript(session=session, text='I have Part A and Part B')
-    
+    session.lead.zip_code = "74423"
+
+    engine.process_transcript(session=session, text="Yes I consent")
+
+    engine.process_transcript(session=session, text="I have Part A and Part B")
+
     assert session.lead.medicare_part_a is True
     assert session.lead.medicare_part_b is True
     assert session.state == ConversationState.QUALIFIED
-

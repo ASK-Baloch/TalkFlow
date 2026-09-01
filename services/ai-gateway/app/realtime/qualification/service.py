@@ -233,7 +233,9 @@ class QualificationService:
         self,
         connection_id: str,
     ) -> QualificationSession | None:
-        return self._sessions.get(connection_id) or self._recent_sessions.get(connection_id)
+        return self._sessions.get(connection_id) or self._recent_sessions.get(
+            connection_id
+        )
 
     @property
     def active_sessions(

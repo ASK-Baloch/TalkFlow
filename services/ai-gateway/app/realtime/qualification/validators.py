@@ -15,18 +15,23 @@ def validate_name(
         return False
 
     for part in parts:
-        cleaned = part.replace(
-            "'",
-            "",
-        ).replace(
-            "-",
-            "",
-        ).replace(
-            ".",
-            "",
-        ).replace(
-            ",",
-            "",
+        cleaned = (
+            part.replace(
+                "'",
+                "",
+            )
+            .replace(
+                "-",
+                "",
+            )
+            .replace(
+                ".",
+                "",
+            )
+            .replace(
+                ",",
+                "",
+            )
         )
 
         if not cleaned.isalpha():

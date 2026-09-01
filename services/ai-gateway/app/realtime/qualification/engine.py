@@ -117,6 +117,7 @@ class QualificationEngine:
         import re
 
         from .normalization import normalize_text
+
         normalized_text = normalize_text(text)
         is_correction = bool(
             re.search(r"\b(?:actually|sorry|correction|no)\b", normalized_text)
@@ -251,10 +252,15 @@ class QualificationEngine:
                 updated_fields=(updated_fields),
             )
 
-        medicare_satisfied = session.lead.medicare_part_a is True or session.lead.medicare_part_b is True
+        medicare_satisfied = (
+            session.lead.medicare_part_a is True or session.lead.medicare_part_b is True
+        )
 
         if not medicare_satisfied:
-            if session.lead.medicare_part_a is None and session.lead.medicare_part_b is None:
+            if (
+                session.lead.medicare_part_a is None
+                and session.lead.medicare_part_b is None
+            ):
                 return self._ask_or_clarify(
                     session,
                     field_name=(FieldName.MEDICARE_PART_A),
@@ -263,8 +269,11 @@ class QualificationEngine:
                     clarify_type=(ActionType.CLARIFY_PART_A),
                     updated_fields=(updated_fields),
                 )
-            
-            if session.lead.medicare_part_a is False and session.lead.medicare_part_b is None:
+
+            if (
+                session.lead.medicare_part_a is False
+                and session.lead.medicare_part_b is None
+            ):
                 return self._ask_or_clarify(
                     session,
                     field_name=(FieldName.MEDICARE_PART_B),
