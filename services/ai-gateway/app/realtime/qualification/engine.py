@@ -115,6 +115,7 @@ class QualificationEngine:
 
         # Determine if this utterance contains explicit correction intent
         import re
+
         from .normalization import normalize_text
         normalized_text = normalize_text(text)
         is_correction = bool(

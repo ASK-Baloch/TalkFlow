@@ -228,7 +228,7 @@ def test_existing_field_not_overwritten():
     engine.process_transcript(session=session, text="67.")
     engine.process_transcript(session=session, text="Yes I have Part A.")
 
-    result = engine.process_transcript(
+    engine.process_transcript(
         session=session,
         text="I have Part B.",
     )
@@ -242,7 +242,7 @@ def test_age_does_not_overwrite_name():
     session = create_session()
 
     engine.process_transcript(session=session, text="Yes.")
-    result = engine.process_transcript(session=session, text="My age is 67.")
+    engine.process_transcript(session=session, text="My age is 67.")
 
     assert session.lead.age == 67
     assert session.lead.full_name is None
@@ -253,7 +253,7 @@ def test_zip_does_not_overwrite_name():
     session = create_session()
 
     engine.process_transcript(session=session, text="Yes.")
-    result = engine.process_transcript(session=session, text="My ZIP code is 74423.")
+    engine.process_transcript(session=session, text="My ZIP code is 74423.")
 
     assert session.lead.zip_code == "74423"
     assert session.lead.full_name is None
@@ -264,7 +264,7 @@ def test_part_a_does_not_overwrite_name():
     session = create_session()
 
     engine.process_transcript(session=session, text="Yes.")
-    result = engine.process_transcript(session=session, text="I have Medicare Part A.")
+    engine.process_transcript(session=session, text="I have Medicare Part A.")
 
     assert session.lead.medicare_part_a is True
     assert session.lead.full_name is None
@@ -279,7 +279,7 @@ def test_negation_preserved():
     engine.process_transcript(session=session, text="67.")
     engine.process_transcript(session=session, text="Yes.")
 
-    result = engine.process_transcript(session=session, text="No, I don't have Part B.")
+    engine.process_transcript(session=session, text="No, I don't have Part B.")
 
     assert session.lead.medicare_part_b is False
 
@@ -307,7 +307,7 @@ def test_correction_overwrites_field():
     engine.process_transcript(session=session, text="Yes.")
     engine.process_transcript(session=session, text="Alex.")
     
-    result = engine.process_transcript(
+    engine.process_transcript(
         session=session, 
         text="Actually my name is Daniel Smith."
     )
@@ -322,7 +322,7 @@ def test_part_b_does_not_overwrite_name_when_existing():
     engine.process_transcript(session=session, text="Yes.")
     engine.process_transcript(session=session, text="Alex.")
     
-    result = engine.process_transcript(
+    engine.process_transcript(
         session=session, 
         text="I have Part B."
     )
@@ -340,7 +340,7 @@ def test_observed_production_sequence():
     engine.process_transcript(session=session, text="My age is 67.")
     engine.process_transcript(session=session, text="My zip code is 74423.")
     
-    result = engine.process_transcript(session=session, text="I have Part B.")
+    engine.process_transcript(session=session, text="I have Part B.")
 
     assert session.lead.consent is True
     assert session.lead.full_name == "Alex"
@@ -398,7 +398,7 @@ def test_medicare_part_a_false_part_b_true_satisfies():
     engine.process_transcript(session=session, text='No Part A')
     
     assert session.state == ConversationState.COLLECTING_PART_B
-    result = engine.process_transcript(session=session, text='I have Part B')
+    engine.process_transcript(session=session, text='I have Part B')
     
     assert session.lead.medicare_part_a is False
     assert session.lead.medicare_part_b is True
@@ -415,7 +415,7 @@ def test_medicare_part_a_null_part_b_true_satisfies():
     
     engine.process_transcript(session=session, text='Yes I consent')
     
-    result = engine.process_transcript(session=session, text='I have Part B')
+    engine.process_transcript(session=session, text='I have Part B')
     
     assert session.lead.medicare_part_a is None
     assert session.lead.medicare_part_b is True
@@ -432,7 +432,7 @@ def test_medicare_both_false_disqualifies():
     
     engine.process_transcript(session=session, text='Yes I consent')
     engine.process_transcript(session=session, text='No Part A')
-    result = engine.process_transcript(session=session, text='No Part B')
+    engine.process_transcript(session=session, text='No Part B')
     
     assert session.lead.medicare_part_a is False
     assert session.lead.medicare_part_b is False
@@ -449,7 +449,7 @@ def test_medicare_both_true_satisfies():
     
     engine.process_transcript(session=session, text='Yes I consent')
     
-    result = engine.process_transcript(session=session, text='I have Part A and Part B')
+    engine.process_transcript(session=session, text='I have Part A and Part B')
     
     assert session.lead.medicare_part_a is True
     assert session.lead.medicare_part_b is True
