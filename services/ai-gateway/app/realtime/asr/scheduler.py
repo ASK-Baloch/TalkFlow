@@ -35,18 +35,20 @@ class AsrJob:
 
     beam_size: int = field(compare=False)
     import typing
+
     stream: typing.Any = field(compare=False, default=None)
 
     created_ns: int = field(
         default_factory=perf_counter_ns,
         compare=False,
     )
-    
+
     worker_start_ns: int = field(default=0, compare=False)
     decode_start_ns: int = field(default=0, compare=False)
     decode_done_ns: int = field(default=0, compare=False)
     emit_ns: int = field(default=0, compare=False)
     acoustic_end_ns: int = field(default=0, compare=False)
+
 
 class AsrScheduler:
     def __init__(
@@ -67,7 +69,7 @@ class AsrScheduler:
         self._sequence = itertools.count()
 
         self.result_handler = None
-        
+
         # Track pending partials per connection
         self._pending_partials = {}
         self._active_partials = 0
@@ -97,7 +99,7 @@ class AsrScheduler:
                 if self._active_partials >= 1:
                     asr_metrics.queue_overflows += 1
                     return False
-                    
+
                 # Coalesce: drop older pending partial for this connection
                 conn = job.connection_id
                 if conn in self._pending_partials:
@@ -105,7 +107,7 @@ class AsrScheduler:
                     # We can't easily remove from PriorityQueue, so we mark it stale
                     old_job.stale = True
                     asr_metrics.queue_overflows += 1
-                    
+
                 self._pending_partials[conn] = job
                 self._active_partials += 1
                 # Hardcode priority for partial
@@ -124,14 +126,14 @@ class AsrScheduler:
                 if conn in self._pending_partials:
                     self._pending_partials[conn].stale = True
                     del self._pending_partials[conn]
-                    
+
                 # Hardcode priority for final
                 job.priority = 0
 
             if self.queue.full() and job.transcript_type == TranscriptType.PARTIAL:
                 asr_metrics.queue_overflows += 1
                 return False
-                    
+
             job.stale = False
             await self.queue.put(job)
 
@@ -145,16 +147,19 @@ class AsrScheduler:
     ):
         while True:
             job = await self.queue.get()
-            
-            if getattr(job, 'stale', False):
+
+            if getattr(job, "stale", False):
                 if job.transcript_type == TranscriptType.PARTIAL:
                     async with self._queue_lock:
                         self._active_partials -= 1
                 self.queue.task_done()
                 continue
-                
+
             async with self._queue_lock:
-                if job.transcript_type == TranscriptType.PARTIAL and self._pending_partials.get(job.connection_id) is job:
+                if (
+                    job.transcript_type == TranscriptType.PARTIAL
+                    and self._pending_partials.get(job.connection_id) is job
+                ):
                     del self._pending_partials[job.connection_id]
 
             queue_wait_ms = (perf_counter_ns() - job.created_ns) / 1_000_000
@@ -163,12 +168,12 @@ class AsrScheduler:
 
             try:
                 job.worker_start_ns = perf_counter_ns()
-                
+
                 # Use the stateful stream if available, otherwise fallback to provider
                 beam_size = job.beam_size
-                    
+
                 job.decode_start_ns = perf_counter_ns()
-                
+
                 if job.stream:
                     # Update stream beam_size if needed
                     job.stream.beam_size = beam_size
@@ -180,43 +185,72 @@ class AsrScheduler:
                             self.provider.transcribe,
                             job.audio,
                             beam_size=beam_size,
-                            context_hints=job.stream.context_hints
+                            context_hints=job.stream.context_hints,
                         )
                 else:
-                    if job.transcript_type in (TranscriptType.FINAL, TranscriptType.FINAL_TENTATIVE):
+                    if job.transcript_type in (
+                        TranscriptType.FINAL,
+                        TranscriptType.FINAL_TENTATIVE,
+                    ):
                         import hashlib
 
                         import numpy as np
                         import soundfile as sf
-                        
+
                         buffer_bytes = job.audio.tobytes()
                         buffer_hash = hashlib.sha256(buffer_bytes).hexdigest()
-                        
-                        logger.info("FINAL ASR FORENSIC: sample_count=%s, sample_rate=%s, duration=%.3fs, dtype=%s, peak=%.4f, RMS=%.4f, SHA256=%s",
-                                    len(job.audio), 16000, len(job.audio)/16000, job.audio.dtype, 
-                                    float(np.max(np.abs(job.audio))), float(np.sqrt(np.mean(job.audio**2))), buffer_hash)
-                        
+
+                        logger.info(
+                            "FINAL ASR FORENSIC: sample_count=%s, sample_rate=%s, duration=%.3fs, dtype=%s, peak=%.4f, RMS=%.4f, SHA256=%s",
+                            len(job.audio),
+                            16000,
+                            len(job.audio) / 16000,
+                            job.audio.dtype,
+                            float(np.max(np.abs(job.audio))),
+                            float(np.sqrt(np.mean(job.audio**2))),
+                            buffer_hash,
+                        )
+
                         try:
-                            sf.write(f"/app/test_set/FINAL-ASR-INPUT-{job.utterance_id}.wav", job.audio, 16000)
-                            logger.info("FINAL ASR FORENSIC: Saved exact buffer to /app/test_set/FINAL-ASR-INPUT-%s.wav", job.utterance_id)
+                            sf.write(
+                                f"/app/test_set/FINAL-ASR-INPUT-{job.utterance_id}.wav",
+                                job.audio,
+                                16000,
+                            )
+                            logger.info(
+                                "FINAL ASR FORENSIC: Saved exact buffer to /app/test_set/FINAL-ASR-INPUT-%s.wav",
+                                job.utterance_id,
+                            )
                         except Exception as e:
-                            logger.error("FINAL ASR FORENSIC: Failed to save wav: %s", e)
-                        
-                        logger.info("FINAL ASR FORENSIC: Running LIVE Original Transcribe")
+                            logger.error(
+                                "FINAL ASR FORENSIC: Failed to save wav: %s", e
+                            )
+
+                        logger.info(
+                            "FINAL ASR FORENSIC: Running LIVE Original Transcribe"
+                        )
                         result = await asyncio.to_thread(
                             self.provider.transcribe,
                             job.audio,
                             beam_size=beam_size,
                         )
-                        logger.info("FINAL ASR FORENSIC: LIVE ORIGINAL OUTPUT = '%s'", result.text if hasattr(result, 'text') else str(result))
-                        
+                        logger.info(
+                            "FINAL ASR FORENSIC: LIVE ORIGINAL OUTPUT = '%s'",
+                            result.text if hasattr(result, "text") else str(result),
+                        )
+
                         logger.info("FINAL ASR FORENSIC: Running REPLAY Transcribe")
                         replay_result = await asyncio.to_thread(
                             self.provider.transcribe,
                             job.audio,
                             beam_size=beam_size,
                         )
-                        logger.info("FINAL ASR FORENSIC: IMMEDIATE REPLAY OUTPUT = '%s'", replay_result.text if hasattr(replay_result, 'text') else str(replay_result))
+                        logger.info(
+                            "FINAL ASR FORENSIC: IMMEDIATE REPLAY OUTPUT = '%s'",
+                            replay_result.text
+                            if hasattr(replay_result, "text")
+                            else str(replay_result),
+                        )
                     else:
                         result = await asyncio.to_thread(
                             self.provider.transcribe,
@@ -226,15 +260,21 @@ class AsrScheduler:
 
                 job.decode_done_ns = perf_counter_ns()
                 decode_ms = (job.decode_done_ns - job.decode_start_ns) / 1_000_000
-                
+
                 from .normalization import get_domain_normalizer
-                
+
                 # We can retrieve context hints from stream if it's available
-                context_hints = job.stream.context_hints if hasattr(job.stream, 'context_hints') else None
-                
+                context_hints = (
+                    job.stream.context_hints
+                    if hasattr(job.stream, "context_hints")
+                    else None
+                )
+
                 norm_started = perf_counter_ns()
                 normalizer = get_domain_normalizer()
-                normalized_text, _corrections = normalizer.normalize(result.text, context_hints=context_hints)
+                normalized_text, _corrections = normalizer.normalize(
+                    result.text, context_hints=context_hints
+                )
                 norm_ms = (perf_counter_ns() - norm_started) / 1_000_000
 
                 job.emit_ns = perf_counter_ns()
@@ -252,7 +292,7 @@ class AsrScheduler:
                     queue_wait_ms=queue_wait_ms,
                     normalization_ms=norm_ms,
                 )
-                
+
                 # Attach job timings to event for detailed logging
                 event.job_created_ns = job.created_ns
                 event.worker_start_ns = job.worker_start_ns
@@ -269,7 +309,9 @@ class AsrScheduler:
                 logger.exception("ASR worker error")
 
             finally:
-                if job.transcript_type == TranscriptType.PARTIAL and not getattr(job, 'stale', False):
+                if job.transcript_type == TranscriptType.PARTIAL and not getattr(
+                    job, "stale", False
+                ):
                     async with self._queue_lock:
                         self._active_partials -= 1
                 self.queue.task_done()

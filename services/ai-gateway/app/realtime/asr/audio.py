@@ -60,8 +60,8 @@ class StreamingResampler:
             audio,
             last=False,
         )
-        
-        # Strictly enforce the [-1.0, 1.0] ASR bounds 
+
+        # Strictly enforce the [-1.0, 1.0] ASR bounds
         # (the pre-gain usually prevents this from actually engaging)
         return np.clip(resampled, -1.0, 1.0)
 

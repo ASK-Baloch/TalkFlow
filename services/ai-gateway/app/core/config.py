@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,7 +69,13 @@ class Settings(BaseSettings):
     asr_word_timestamps: bool = False
     asr_condition_on_previous_text: bool = False
     asr_initial_prompt: str = "TalkFlow."
-
+    qualification_enabled: bool = False
+    qualification_min_age: int = 65
+    qualification_zip_length: int = 5
+    qualification_max_clarifications_per_field: int = 3
+    qualification_log_state_transitions: bool = True
+    qualification_log_field_values: bool = False
+    qualification_debug_endpoints: bool = False
     audiosocket_echo_enabled: bool = True
 
     model_config = SettingsConfigDict(
@@ -77,20 +84,38 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def validate_settings(self) -> "Settings":
+        if self.qualification_min_age < 0:
+            raise ValueError("QUALIFICATION_MIN_AGE must be >= 0")
+
+        if self.qualification_zip_length != 5:
+            raise ValueError("Phase 4 currently expects 5-digit ZIP codes")
+
+        if self.qualification_max_clarifications_per_field < 1:
+            raise ValueError("QUALIFICATION_MAX_CLARIFICATIONS_PER_FIELD must be >= 1")
+
+        return self
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
 
 @lru_cache
 def get_asr_vocabulary() -> dict:
     from pathlib import Path
 
     import yaml
-    
-    vocab_path = Path(__file__).parent.parent.parent.parent.parent / "config" / "asr_domain_terms.yaml"
+
+    vocab_path = (
+        Path(__file__).parent.parent.parent.parent.parent
+        / "config"
+        / "asr_domain_terms.yaml"
+    )
     if not vocab_path.exists():
         return {"terms": {}, "global": [], "states": {}}
-        
+
     with open(vocab_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {"terms": {}, "global": [], "states": {}}

@@ -7,6 +7,7 @@ import numpy as np
 logger = logging.getLogger("talkflow.asr")
 
 from app.core.config import get_settings
+from app.realtime.qualification.service import qualification_service
 from app.realtime.vad.types import VadEvent, VadEventType
 
 from .metrics import asr_metrics
@@ -23,7 +24,7 @@ class AsrService:
         self.settings = settings
 
         self.sessions = {}
-        
+
         self.is_ready = False
 
         self.provider = None
@@ -35,6 +36,7 @@ class AsrService:
 
         if self.settings.asr_provider == "nemo":
             from .nemo_provider import NemoProvider
+
             self.provider = await asyncio.to_thread(
                 NemoProvider,
                 model_path=self.settings.asr_model,
@@ -42,13 +44,16 @@ class AsrService:
             )
         else:
             from .faster_whisper import FasterWhisperProvider
+
             self.provider = await asyncio.to_thread(
                 FasterWhisperProvider,
                 model_name=self.settings.asr_model,
                 device=self.settings.asr_device,
                 compute_type=(self.settings.asr_compute_type),
                 language=(self.settings.asr_language),
-                condition_on_previous_text=(self.settings.asr_condition_on_previous_text),
+                condition_on_previous_text=(
+                    self.settings.asr_condition_on_previous_text
+                ),
                 word_timestamps=(self.settings.asr_word_timestamps),
                 initial_prompt=(self.settings.asr_initial_prompt),
             )
@@ -66,7 +71,7 @@ class AsrService:
         import os
 
         import soundfile as sf
-        
+
         warmup_path = "/app/scripts/test_set/001.wav"
         if os.path.exists(warmup_path):
             audio_data, _ = sf.read(warmup_path)
@@ -84,7 +89,9 @@ class AsrService:
                 beam_size=self.settings.asr_final_beam_size,
             )
             t1 = perf_counter_ns()
-            logger.info("ASR warmup pass %d completed in %.1fms", i, (t1 - t0) / 1_000_000)
+            logger.info(
+                "ASR warmup pass %d completed in %.1fms", i, (t1 - t0) / 1_000_000
+            )
 
         logger.info("ASR ready=true")
         self.is_ready = True
@@ -114,10 +121,10 @@ class AsrService:
         session = self.sessions.get(connection_id)
         if session is None:
             return
-            
+
         session.session_uuid = session_uuid
         session.process_pcm(payload)
-        
+
         await self.maybe_schedule_partial(session)
 
     async def maybe_schedule_partial(self, session):
@@ -129,7 +136,7 @@ class AsrService:
 
         if not session.active_utterance_id:
             return
-            
+
         active = session.get_utterance(session.active_utterance_id)
         if not active:
             return
@@ -181,53 +188,55 @@ class AsrService:
 
         if event.event_type == VadEventType.SPEECH_START:
             session.session_uuid = session_uuid
-            
+
             # Open a new stateful stream for this utterance
             asr_stream = None
             if self.provider:
                 from app.core.config import get_asr_vocabulary
+
                 vocab = get_asr_vocabulary()
-                
+
                 # Combine global terms with dynamic state hints passed from the application
-                active_hints = list(set(vocab.get("global", []) + session.context_hints))
-                
+                active_hints = list(
+                    set(vocab.get("global", []) + session.context_hints)
+                )
+
                 asr_stream = self.provider.open_stream(
                     beam_size=self.settings.asr_final_beam_size,
-                    context_hints=active_hints
+                    context_hints=active_hints,
                 )
-            
+
             session.start_utterance(asr_stream=asr_stream)
             logger.info("VAD speech_start sample=%s", event.sample_index)
 
         elif event.event_type == VadEventType.SPEECH_PENDING_END:
-            logger.info(
-                "VAD pending_end sample=%s",
-                event.sample_index
-            )
-            
+            logger.info("VAD pending_end sample=%s", event.sample_index)
+
             if session.active_utterance_id:
                 active = session.get_utterance(session.active_utterance_id)
                 if active:
                     audio = session.utterance.snapshot()
-                    
+
                     # Trim the same way as final
                     trailing_trim_ms = max(0, event.detection_delay_ms - 100)
                     leading_trim_ms = max(0, self.settings.asr_pre_roll_ms - 100)
-                    
+
                     sample_rate = self.settings.asr_sample_rate
-                    
+
                     start_idx = int(leading_trim_ms * sample_rate / 1000)
                     end_trim_idx = int(trailing_trim_ms * sample_rate / 1000)
-                    
+
                     if end_trim_idx > 0:
                         audio = audio[start_idx:-end_trim_idx]
                     else:
                         audio = audio[start_idx:]
-                        
+
                     active.revision += 1
                     active.tentative_inflight = True
-                    active.acoustic_end_ns = perf_counter_ns() - int(event.detection_delay_ms * 1_000_000)
-                    
+                    active.acoustic_end_ns = perf_counter_ns() - int(
+                        event.detection_delay_ms * 1_000_000
+                    )
+
                     await self.scheduler.submit(
                         AsrJob(
                             priority=1,
@@ -247,7 +256,7 @@ class AsrService:
         elif event.event_type == VadEventType.SPEECH_RESUMED:
             logger.info(
                 "VAD speech_resumed silence_ms=%.1f\nVAD pending_end_cancelled\nsame_utterance=true",
-                event.detection_delay_ms
+                event.detection_delay_ms,
             )
             if session.active_utterance_id:
                 active = session.get_utterance(session.active_utterance_id)
@@ -260,12 +269,12 @@ class AsrService:
             or event.event_type == VadEventType.MAX_SPEECH_REACHED
         ):
             session.finish_utterance()
-            
+
             logger.info(
                 "VAD %s sample=%s silence_ms=%.1f",
                 event.event_type.value,
                 event.sample_index,
-                event.detection_delay_ms
+                event.detection_delay_ms,
             )
 
             if not session.active_utterance_id:
@@ -276,18 +285,18 @@ class AsrService:
                 return
 
             audio = session.utterance.snapshot()
-            
+
             sample_rate = self.settings.asr_sample_rate
             original_duration_ms = len(audio) / sample_rate * 1000
 
             trailing_trim_ms = max(0, event.detection_delay_ms - 100)
             leading_trim_ms = max(0, self.settings.asr_pre_roll_ms - 100)
-            
+
             start_idx = int(leading_trim_ms * sample_rate / 1000)
             end_trim_idx = int(trailing_trim_ms * sample_rate / 1000)
-            
+
             # Save first 5 validation cases
-            if not hasattr(self, '_trim_validation_count'):
+            if not hasattr(self, "_trim_validation_count"):
                 self._trim_validation_count = 0
             has_sf = False
             if self._trim_validation_count < 5:
@@ -295,42 +304,56 @@ class AsrService:
                     import os
 
                     import soundfile as sf
+
                     os.makedirs("/app/test_set/trim_validation", exist_ok=True)
                     has_sf = True
                     try:
-                        sf.write(f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav", audio, sample_rate)
+                        sf.write(
+                            f"/app/test_set/trim_validation/untrimmed_{self._trim_validation_count}.wav",
+                            audio,
+                            sample_rate,
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to save debug untrimmed file: {e}")
                 except ImportError:
                     pass
-            
+
             if end_trim_idx > 0:
                 trimmed_audio = audio[start_idx:-end_trim_idx]
             else:
                 trimmed_audio = audio[start_idx:]
-                
+
             if self._trim_validation_count < 5 and has_sf:
                 try:
-                    sf.write(f"/app/test_set/trim_validation/trimmed_{self._trim_validation_count}.wav", trimmed_audio, sample_rate)
+                    sf.write(
+                        f"/app/test_set/trim_validation/trimmed_{self._trim_validation_count}.wav",
+                        trimmed_audio,
+                        sample_rate,
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to save debug trimmed file: {e}")
                 self._trim_validation_count += 1
-                
+
             trimmed_duration_ms = len(trimmed_audio) / sample_rate * 1000
             logger.info(
                 "VAD audio trim: original=%.1fms trailing_trim=%.1fms leading_trim=%.1fms trimmed=%.1fms",
-                original_duration_ms, trailing_trim_ms, leading_trim_ms, trimmed_duration_ms
+                original_duration_ms,
+                trailing_trim_ms,
+                leading_trim_ms,
+                trimmed_duration_ms,
             )
 
             active.finalized = True
-            
+
             # Only bump revision if no FINAL_TENTATIVE is in flight.
             if not active.tentative_inflight:
                 active.revision += 1
 
             if active.tentative_result:
                 # Speculative decode already finished — promote it to FINAL.
-                logger.info("VAD speech_end utilizing FINAL_TENTATIVE result (pre-arrived)")
+                logger.info(
+                    "VAD speech_end utilizing FINAL_TENTATIVE result (pre-arrived)"
+                )
                 tentative = active.tentative_result
                 tentative.transcript_type = TranscriptType.FINAL
                 tentative.revision = active.revision
@@ -339,11 +362,16 @@ class AsrService:
 
             if active.tentative_inflight:
                 # FINAL_TENTATIVE still running — let it arrive and promote itself.
-                logger.info("VAD speech_end waiting for in-flight FINAL_TENTATIVE (revision=%s)", active.revision)
+                logger.info(
+                    "VAD speech_end waiting for in-flight FINAL_TENTATIVE (revision=%s)",
+                    active.revision,
+                )
                 return
 
             if not active.acoustic_end_ns:
-                active.acoustic_end_ns = perf_counter_ns() - int(event.detection_delay_ms * 1_000_000)
+                active.acoustic_end_ns = perf_counter_ns() - int(
+                    event.detection_delay_ms * 1_000_000
+                )
 
             await self.scheduler.submit(
                 AsrJob(
@@ -381,7 +409,12 @@ class AsrService:
         if event.transcript_type == TranscriptType.PARTIAL:
             utterance.partial_inflight = False
 
-            if utterance.finalized or utterance.cancelled or event.revision != utterance.revision or utterance.final_emitted:
+            if (
+                utterance.finalized
+                or utterance.cancelled
+                or event.revision != utterance.revision
+                or utterance.final_emitted
+            ):
                 asr_metrics.stale_partials_dropped += 1
                 return
 
@@ -395,7 +428,9 @@ class AsrService:
                     first_partial_latency_ms = (
                         perf_counter_ns() - utterance.speech_start_ns
                     ) / 1_000_000.0
-                    asr_metrics.first_partial_latency_ms.append(first_partial_latency_ms)
+                    asr_metrics.first_partial_latency_ms.append(
+                        first_partial_latency_ms
+                    )
 
             # Audio available -> partial result is queue + decode
             processing_latency_ms = event.queue_wait_ms + event.decode_ms
@@ -418,30 +453,50 @@ class AsrService:
 
         elif event.transcript_type == TranscriptType.FINAL_TENTATIVE:
             utterance.tentative_inflight = False
-            
-            if utterance.cancelled or event.revision != utterance.revision or utterance.final_emitted:
-                logger.info("ASR FINAL_TENTATIVE discarded (stale) text='%s'", event.text)
+
+            if (
+                utterance.cancelled
+                or event.revision != utterance.revision
+                or utterance.final_emitted
+            ):
+                logger.info(
+                    "ASR FINAL_TENTATIVE discarded (stale) text='%s'", event.text
+                )
                 return
-                
-            acoustic_delay = (event.job_created_ns - event.acoustic_end_ns) / 1_000_000.0 if event.acoustic_end_ns else 0
-            tentative_queue = (event.decode_start_ns - event.job_created_ns) / 1_000_000.0
+
+            acoustic_delay = (
+                (event.job_created_ns - event.acoustic_end_ns) / 1_000_000.0
+                if event.acoustic_end_ns
+                else 0
+            )
+            tentative_queue = (
+                event.decode_start_ns - event.job_created_ns
+            ) / 1_000_000.0
             model_compute = (event.decode_done_ns - event.decode_start_ns) / 1_000_000.0
-            
+
             if utterance.finalized:
                 # SPEECH_END already fired and waited for us — promote directly to FINAL
                 logger.info(
                     "ASR FINAL_TENTATIVE->FINAL (speculative hit) text='%s' decode_ms=%.1f acoustic_delay=%.1f queue=%.1f compute=%.1f",
-                    event.text, event.decode_ms, acoustic_delay, tentative_queue, model_compute
+                    event.text,
+                    event.decode_ms,
+                    acoustic_delay,
+                    tentative_queue,
+                    model_compute,
                 )
                 event.transcript_type = TranscriptType.FINAL
                 await self.handle_transcript(event)
                 return
-                
+
             logger.info(
                 "ASR FINAL_TENTATIVE text='%s' decode_ms=%.1f acoustic_delay=%.1f queue=%.1f compute=%.1f",
-                event.text, event.decode_ms, acoustic_delay, tentative_queue, model_compute
+                event.text,
+                event.decode_ms,
+                acoustic_delay,
+                tentative_queue,
+                model_compute,
             )
-            
+
             # Store it; SPEECH_END will promote it when it fires
             utterance.tentative_result = event
 
@@ -452,25 +507,41 @@ class AsrService:
             utterance.final_emitted = True
 
             final_after_speech_end_ms = 0.0
-            
+
             utterance.finalized = True
             if utterance.speech_end_ns:
                 final_after_speech_end_ms = (
                     perf_counter_ns() - utterance.speech_end_ns
                 ) / 1_000_000.0
-                    
-            endpointing_ms = (utterance.speech_end_ns - utterance.speech_start_ns) / 1_000_000.0 if utterance.speech_end_ns and utterance.speech_start_ns else 0
-            final_queue_ms = (event.worker_start_ns - event.job_created_ns) / 1_000_000.0 if event.worker_start_ns > 0 else event.queue_wait_ms
-            final_decode_ms = (event.decode_done_ns - event.decode_start_ns) / 1_000_000.0 if event.decode_done_ns > 0 else event.decode_ms
-            final_emit_overhead_ms = (event.emit_ns - event.decode_done_ns) / 1_000_000.0 if event.emit_ns > 0 else 0
-            
+
+            endpointing_ms = (
+                (utterance.speech_end_ns - utterance.speech_start_ns) / 1_000_000.0
+                if utterance.speech_end_ns and utterance.speech_start_ns
+                else 0
+            )
+            final_queue_ms = (
+                (event.worker_start_ns - event.job_created_ns) / 1_000_000.0
+                if event.worker_start_ns > 0
+                else event.queue_wait_ms
+            )
+            final_decode_ms = (
+                (event.decode_done_ns - event.decode_start_ns) / 1_000_000.0
+                if event.decode_done_ns > 0
+                else event.decode_ms
+            )
+            final_emit_overhead_ms = (
+                (event.emit_ns - event.decode_done_ns) / 1_000_000.0
+                if event.emit_ns > 0
+                else 0
+            )
+
             T0 = event.acoustic_end_ns
             T4 = utterance.speech_end_ns if utterance else 0
             T5 = event.emit_ns if event.emit_ns > 0 else perf_counter_ns()
-            
+
             acoustic_end_to_final_ms = (T5 - T0) / 1_000_000.0 if T0 else 0
             committed_end_to_final_ms = (T5 - T4) / 1_000_000.0 if T4 else 0
-            
+
             logger.info(
                 (
                     "ASR FINAL "
@@ -497,6 +568,12 @@ class AsrService:
                 acoustic_end_to_final_ms,
                 committed_end_to_final_ms,
                 rtf,
+            )
+
+            await qualification_service.process_final_transcript(
+                connection_id=event.connection_id,
+                session_uuid=event.session_uuid,
+                text=event.text,
             )
 
 
