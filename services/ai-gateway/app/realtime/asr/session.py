@@ -60,19 +60,19 @@ class AsrSession:
         )
 
         self.utterance = UtteranceBuffer()
-        
+
         self.pre_roll_8k = AudioRingBuffer(
             sample_rate=input_sample_rate,
             max_ms=pre_roll_ms,
         )
-        
+
         self.utterance_8k = UtteranceBuffer()
 
         self.active_utterance_id: str | None = None
         self.utterances: dict[str, UtteranceState] = {}
-        
+
         self.speaking = False
-        
+
         self.asr_stream = None
         self.context_hints: list[str] = []
 
@@ -104,30 +104,31 @@ class AsrSession:
 
         new_id = str(uuid.uuid4())
         self.active_utterance_id = new_id
-        
+
         # Cleanup: Keep only last 10 completed utterances to prevent unbounded memory
-        completed = [u for u in self.utterances.values() if u.final_emitted or u.cancelled]
+        completed = [
+            u for u in self.utterances.values() if u.final_emitted or u.cancelled
+        ]
         if len(completed) > 10:
             completed.sort(key=lambda u: u.created_ns)
             for old_u in completed[:-10]:
                 del self.utterances[old_u.utterance_id]
 
         new_utterance = UtteranceState(
-            utterance_id=new_id,
-            speech_start_ns=perf_counter_ns()
+            utterance_id=new_id, speech_start_ns=perf_counter_ns()
         )
         self.utterances[new_id] = new_utterance
 
         self.utterance.clear()
         self.utterance_8k.clear()
-        
+
         # Capture pre-roll and push it to the new stream
         pre_roll_audio = self.pre_roll.snapshot()
         self.utterance.append(pre_roll_audio)
-        
+
         pre_roll_audio_8k = self.pre_roll_8k.snapshot()
         self.utterance_8k.append(pre_roll_audio_8k)
-        
+
         self.asr_stream = asr_stream
         if self.asr_stream and pre_roll_audio.size > 0:
             self.asr_stream.push_audio(pre_roll_audio)
@@ -138,15 +139,24 @@ class AsrSession:
         if self.active_utterance_id and self.active_utterance_id in self.utterances:
             active = self.utterances[self.active_utterance_id]
             active.speech_end_ns = perf_counter_ns()
-            
+
         try:
             import os
 
             import soundfile as sf
+
             os.makedirs("/app/test_set", exist_ok=True)
             if self.active_utterance_id:
-                sf.write(f"/app/test_set/{self.active_utterance_id}_8k.wav", self.utterance_8k.snapshot(), self.input_sample_rate)
-                sf.write(f"/app/test_set/{self.active_utterance_id}_16k.wav", self.utterance.snapshot(), self.sample_rate)
+                sf.write(
+                    f"/app/test_set/{self.active_utterance_id}_8k.wav",
+                    self.utterance_8k.snapshot(),
+                    self.input_sample_rate,
+                )
+                sf.write(
+                    f"/app/test_set/{self.active_utterance_id}_16k.wav",
+                    self.utterance.snapshot(),
+                    self.sample_rate,
+                )
         except ImportError:
             pass
         except OSError as e:
@@ -161,7 +171,7 @@ class AsrSession:
 
         self.active_utterance_id = None
         self.speaking = False
-        
+
         if self.asr_stream:
             try:
                 self.asr_stream.close()

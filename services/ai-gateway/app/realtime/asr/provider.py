@@ -38,7 +38,9 @@ class AsrStream(ABC):
 
 class AsrProvider(ABC):
     @abstractmethod
-    def open_stream(self, *, beam_size: int, context_hints: list[str] | None = None) -> AsrStream:
+    def open_stream(
+        self, *, beam_size: int, context_hints: list[str] | None = None
+    ) -> AsrStream:
         """Open a stateful ASR stream for continuous processing."""
         raise NotImplementedError
 

@@ -16,7 +16,9 @@ if os.name == "nt":
                 if os.path.isdir(bin_path):
                     try:
                         os.add_dll_directory(bin_path)
-                        os.environ["PATH"] = bin_path + os.pathsep + os.environ.get("PATH", "")
+                        os.environ["PATH"] = (
+                            bin_path + os.pathsep + os.environ.get("PATH", "")
+                        )
                     except Exception:  # noqa: S110
                         pass
 
@@ -29,34 +31,37 @@ logger = logging.getLogger("talkflow.asr.faster_whisper")
 
 
 class FasterWhisperStream(AsrStream):
-    def __init__(self, provider: FasterWhisperProvider, beam_size: int, context_hints: list[str] | None = None):
+    def __init__(
+        self,
+        provider: FasterWhisperProvider,
+        beam_size: int,
+        context_hints: list[str] | None = None,
+    ):
         self.provider = provider
         self.beam_size = beam_size
         self.context_hints = context_hints
-        
+
         # Whisper doesn't have true RNN-T recurrent state, so we must buffer audio
         self._chunks = []
-        
+
     def push_audio(self, audio: np.ndarray) -> None:
         if audio.size > 0:
             self._chunks.append(audio.copy())
-            
+
     def get_partial(self) -> AsrDecodeResult:
         if not self._chunks:
             return AsrDecodeResult(text="", language="en", language_probability=1.0)
-            
+
         audio = np.concatenate(self._chunks)
         return self.provider.transcribe(
-            audio, 
-            beam_size=self.beam_size, 
-            context_hints=self.context_hints
+            audio, beam_size=self.beam_size, context_hints=self.context_hints
         )
-        
+
     def finalize(self) -> AsrDecodeResult:
         res = self.get_partial()
         self.close()
         return res
-        
+
     def close(self) -> None:
         self._chunks.clear()
 
@@ -83,12 +88,14 @@ class FasterWhisperProvider(AsrProvider):
         import time
 
         import torch
-        
+
         if device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA was requested but is not available.")
-            
+
         logger.info(
-            ("Loading Faster-Whisper model=%s device=%s (CUDA available=%s) compute_type=%s"),
+            (
+                "Loading Faster-Whisper model=%s device=%s (CUDA available=%s) compute_type=%s"
+            ),
             model_name,
             device,
             torch.cuda.is_available(),
@@ -105,8 +112,10 @@ class FasterWhisperProvider(AsrProvider):
         load_time_ms = (t1 - t0) / 1_000_000
 
         logger.info("Faster-Whisper model ready in %.1fms (CTranslate2)", load_time_ms)
-        
-    def open_stream(self, *, beam_size: int, context_hints: list[str] | None = None) -> AsrStream:
+
+    def open_stream(
+        self, *, beam_size: int, context_hints: list[str] | None = None
+    ) -> AsrStream:
         return FasterWhisperStream(self, beam_size, context_hints)
 
     def transcribe(
@@ -121,7 +130,7 @@ class FasterWhisperProvider(AsrProvider):
         if context_hints:
             hints_str = " ".join(context_hints)
             prompt = f"{prompt} {hints_str}".strip()
-            
+
         segments, info = self.model.transcribe(
             audio,
             language=self.language,
