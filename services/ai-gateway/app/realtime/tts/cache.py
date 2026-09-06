@@ -12,7 +12,6 @@ from .types import (
     ResponseId,
 )
 
-
 logger = logging.getLogger(
     "talkflow.tts.cache"
 )
@@ -128,7 +127,7 @@ class TtsAssetCache:
                 "Phase 5 assets must be 8kHz"
             )
 
-        for response_id, metadata in self._manifest.get("responses", {}).items():
+        for metadata in self._manifest.get("responses", {}).values():
             pcm_path = self.asset_dir / metadata["file"]
             if not pcm_path.exists():
                 raise FileNotFoundError(f"TTS asset missing: {pcm_path}")

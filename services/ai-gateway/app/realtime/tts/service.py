@@ -24,7 +24,6 @@ from .types import (
     PlaybackRequest,
 )
 
-
 logger = logging.getLogger(
     "talkflow.tts"
 )

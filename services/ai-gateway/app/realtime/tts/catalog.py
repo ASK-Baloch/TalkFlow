@@ -7,7 +7,6 @@ from .types import (
     ResponseId,
 )
 
-
 RESPONSES: dict[
     ResponseId,
     ResponseDefinition,

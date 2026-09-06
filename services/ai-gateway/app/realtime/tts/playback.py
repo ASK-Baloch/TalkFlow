@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from time import perf_counter
 
 PCM_8K_MESSAGE_TYPE = 0x10
 
