@@ -51,3 +51,7 @@ tools/tts-assets/models/*.bin
 
 # Generated preview audio
 assets/tts/**/*.wav
+
+# Audio
+*.wav
+*.pcm
