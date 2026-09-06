@@ -1,8 +1,9 @@
-import time
 import json
-import urllib.request
-import threading
 import subprocess
+import threading
+import time
+import urllib.request
+
 import psutil
 
 # The 4 test utterances
@@ -20,7 +21,7 @@ def get_vram():
             encoding='utf-8'
         )
         return max(int(line.strip()) for line in output.strip().split('\n') if line.strip())
-    except:
+    except Exception:
         return 0
 
 class ResourceMonitor(threading.Thread):
@@ -38,12 +39,10 @@ class ResourceMonitor(threading.Thread):
         
         while self.running:
             vram = get_vram()
-            if vram > self.peak_vram:
-                self.peak_vram = vram
+            self.peak_vram = max(self.peak_vram, vram)
                 
             cpu = psutil.cpu_percent(interval=0.1)
-            if cpu > self.peak_cpu:
-                self.peak_cpu = cpu
+            self.peak_cpu = max(self.peak_cpu, cpu)
             
             time.sleep(0.05)
             

@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import soxr
 import torch
-
 from chatterbox.tts_turbo import (
     ChatterboxTurboTTS,
 )

@@ -1,9 +1,8 @@
-import os
+import json
 import sys
 import time
-import json
-import traceback
 from pathlib import Path
+
 import numpy as np
 
 # Add project root to sys path to resolve imports
@@ -12,10 +11,10 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "services" / "ai-gateway"))
 
 from chatterbox.tts_turbo import ChatterboxTurboTTS
+
 sys.path.insert(0, str(ROOT / "tools" / "cosyvoice-benchmark" / "scripts" / "final_benchmark"))
-from shared import (
-    SENTENCES, WARMUP_TEXT, TRIALS, get_vram_usage, validate_audio
-)
+from shared import SENTENCES, TRIALS, WARMUP_TEXT, get_vram_usage, validate_audio
+
 
 def run_chatterbox(output_dir: Path, ref_audio: Path):
     print("Loading Chatterbox Turbo...")

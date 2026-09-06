@@ -1,6 +1,8 @@
 import re
-import numpy as np
 import sys
+
+import numpy as np
+
 
 def main():
     if len(sys.argv) < 2:
@@ -69,7 +71,7 @@ def main():
     print(f"Speculative attempts: {stale_count + utilized_count}")
     print(f"Speculative hits: {utilized_count}")
     print(f"Speculative discards: {stale_count}")
-    print(f"Stale results emitted: 0 (verified in code)")
+    print("Stale results emitted: 0 (verified in code)")
 
 if __name__ == "__main__":
     main()

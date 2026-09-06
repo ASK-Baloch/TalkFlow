@@ -26,7 +26,7 @@ class DummySTTProvider(
     def from_settings(
         cls,
         settings: Any,
-    ) -> "DummySTTProvider":
+    ) -> DummySTTProvider:
         text = getattr(
             settings,
             "stt_dummy_text",

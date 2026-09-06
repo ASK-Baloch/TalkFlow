@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
 )
 
 from app.realtime.tts.cache import (
@@ -36,7 +36,7 @@ class PregeneratedTTSProvider(
     def from_settings(
         cls,
         settings: Any,
-    ) -> "PregeneratedTTSProvider":
+    ) -> PregeneratedTTSProvider:
         cache = TtsAssetCache(
             prefix=(
                 settings.tts_cache_prefix

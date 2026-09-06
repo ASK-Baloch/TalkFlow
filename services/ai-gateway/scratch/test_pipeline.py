@@ -1,6 +1,7 @@
 import asyncio
-import uuid
 import struct
+import uuid
+
 
 async def test_pipeline():
     reader, writer = await asyncio.open_connection("127.0.0.1", 9019)
@@ -31,9 +32,9 @@ async def test_pipeline():
             msg_type, payload_len = struct.unpack(">BH", header_bytes)
             
             if payload_len > 0:
-                payload = await reader.readexactly(payload_len)
+                _ = await reader.readexactly(payload_len)
             else:
-                payload = b""
+                pass
                 
             print(f"Received msg_type=0x{msg_type:02x}, len={payload_len}")
             

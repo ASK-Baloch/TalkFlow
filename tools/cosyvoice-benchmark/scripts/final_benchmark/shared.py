@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-import json
 
 SENTENCES = [
     # SHORT
@@ -70,4 +67,4 @@ def validate_audio(pcm_data: bytes, sample_rate: int, sample_width: int):
         return True, duration_ms, rms, peak, "VALID"
         
     except Exception as e:
-        return False, 0.0, 0.0, 0.0, f"VALIDATION_ERROR: {str(e)}"
+        return False, 0.0, 0.0, 0.0, f"VALIDATION_ERROR: {e!s}"

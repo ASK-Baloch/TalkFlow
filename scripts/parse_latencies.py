@@ -1,5 +1,7 @@
 import re
+
 import numpy as np
+
 
 def main():
     log_file = "gateway3.log"

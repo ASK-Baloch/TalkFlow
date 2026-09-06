@@ -37,7 +37,7 @@ class FasterWhisperSTTProvider(
     def from_settings(
         cls,
         settings: Any,
-    ) -> "FasterWhisperSTTProvider":
+    ) -> FasterWhisperSTTProvider:
         return cls(
             model_name=(
                 settings.asr_model

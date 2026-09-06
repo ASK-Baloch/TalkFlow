@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
 )
 
 from .tts import (
@@ -47,7 +47,7 @@ class DummyTTSProvider(
     def from_settings(
         cls,
         settings: Any,
-    ) -> "DummyTTSProvider":
+    ) -> DummyTTSProvider:
         return cls(
             sample_rate=(
                 settings.tts_sample_rate

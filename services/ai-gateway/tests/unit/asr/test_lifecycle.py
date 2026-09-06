@@ -18,7 +18,9 @@ class MockScheduler:
 
 
 from unittest import mock
+
 from app.core.registry import registry
+
 
 @pytest.fixture
 def asr_service():

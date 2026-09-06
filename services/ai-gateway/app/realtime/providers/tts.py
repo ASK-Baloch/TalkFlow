@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import (
     Any,
-    AsyncIterator,
 )
 
 
@@ -51,7 +51,7 @@ class TTSProvider(ABC):
     def from_settings(
         cls,
         settings: Any,
-    ) -> "TTSProvider":
+    ) -> TTSProvider:
         raise NotImplementedError
 
     async def start(

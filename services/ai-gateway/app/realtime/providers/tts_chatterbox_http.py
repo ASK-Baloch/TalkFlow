@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
 )
 
 import httpx
@@ -54,7 +54,7 @@ class ChatterboxHttpTTSProvider(
     def from_settings(
         cls,
         settings: Any,
-    ) -> "ChatterboxHttpTTSProvider":
+    ) -> ChatterboxHttpTTSProvider:
         samples_per_frame = int(
             settings.tts_sample_rate
             * settings.tts_frame_ms

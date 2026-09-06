@@ -20,7 +20,6 @@ from .schemas import (
     SynthesisRequest,
 )
 
-
 runtime = ChatterboxRuntime(
     settings
 )

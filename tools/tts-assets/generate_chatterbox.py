@@ -1,10 +1,10 @@
-import os
-import sys
 import json
-import wave
-import numpy as np
-from pathlib import Path
+import sys
 import time
+import wave
+from pathlib import Path
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))

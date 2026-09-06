@@ -31,7 +31,7 @@ class STTProvider(ABC):
     def from_settings(
         cls,
         settings: Any,
-    ) -> "STTProvider":
+    ) -> STTProvider:
         raise NotImplementedError
 
     async def start(

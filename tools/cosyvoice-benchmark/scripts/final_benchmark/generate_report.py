@@ -1,9 +1,10 @@
 import json
-import csv
-from collections import defaultdict
-import numpy as np
-from pathlib import Path
 import sys
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
+
 
 def p50(data):
     if not data: return "N/A"

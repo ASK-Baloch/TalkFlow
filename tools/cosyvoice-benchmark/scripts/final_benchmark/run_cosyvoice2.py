@@ -1,23 +1,18 @@
-import os
+import json
 import sys
 import time
-import json
-import traceback
 from pathlib import Path
+
 import numpy as np
-import torch
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "tools" / "cosyvoice-benchmark" / "CosyVoice"))
 sys.path.insert(0, str(ROOT / "tools" / "cosyvoice-benchmark" / "CosyVoice" / "third_party" / "Matcha-TTS"))
 from cosyvoice.cli.cosyvoice import CosyVoice2
-from cosyvoice.utils.file_utils import load_wav
-import torchaudio
 
 sys.path.insert(0, str(ROOT / "tools" / "cosyvoice-benchmark" / "scripts" / "final_benchmark"))
-from shared import (
-    SENTENCES, WARMUP_TEXT, TRIALS, get_vram_usage, validate_audio
-)
+from shared import SENTENCES, TRIALS, WARMUP_TEXT, get_vram_usage, validate_audio
+
 
 def run_cosyvoice2(output_dir: Path, ref_audio: Path, transcript: str):
     print("Loading CosyVoice 2...")

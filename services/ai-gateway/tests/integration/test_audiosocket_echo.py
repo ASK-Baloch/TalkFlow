@@ -1,9 +1,8 @@
 import asyncio
 import uuid
+from unittest import mock
 
 import pytest
-
-from unittest import mock
 
 from app.core.registry import registry
 from app.realtime.audiosocket.protocol import (
@@ -12,6 +11,7 @@ from app.realtime.audiosocket.protocol import (
 )
 from app.realtime.audiosocket.server import AudioSocketServer
 from app.realtime.vad.service import vad_service
+
 
 @pytest.mark.asyncio
 async def test_echo_audio():
