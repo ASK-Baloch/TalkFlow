@@ -52,7 +52,9 @@ class AudioAsset:
 class PlaybackRequest:
     connection_id: str
 
-    response_id: ResponseId
+    response_id: ResponseId | None = None
+
+    text: str | None = None
 
     session_uuid: str | None = None
 
