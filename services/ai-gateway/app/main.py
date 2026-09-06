@@ -12,6 +12,8 @@ from app.realtime.audiosocket.metrics import audiosocket_metrics
 from app.realtime.audiosocket.server import audiosocket_server
 from app.realtime.qualification.metrics import qualification_metrics
 from app.realtime.qualification.service import qualification_service
+from app.realtime.tts.metrics import tts_metrics
+from app.realtime.tts.service import tts_service
 from app.realtime.vad.metrics import vad_metrics
 from app.realtime.vad.service import vad_service
 
@@ -26,6 +28,8 @@ async def lifespan(app: FastAPI):
 
     await qualification_service.start()
 
+    await tts_service.start()
+
     await audiosocket_server.start()
 
     try:
@@ -33,6 +37,8 @@ async def lifespan(app: FastAPI):
 
     finally:
         await audiosocket_server.stop()
+
+        await tts_service.stop()
 
         # Stop ASR after audiosocket stops accepting calls, so ongoing processing can wind down or cancel
         # Currently we don't have an explicit asr_service.stop() method implemented but we will call it if it exists
@@ -79,13 +85,15 @@ async def ready():
     qualification_ready = (
         not qualification_service.enabled or qualification_service.engine is not None
     )
+    tts_ready = not tts_service.enabled or tts_service.cache._manifest is not None
 
-    if not vad_ready or not asr_ready or not qualification_ready:
+    if not vad_ready or not asr_ready or not qualification_ready or not tts_ready:
         return {
             "status": "not_ready",
             "vad": "ready" if vad_ready else "not_ready",
             "asr": "ready" if asr_ready else "not_ready",
             "qualification": "ready" if qualification_ready else "not_ready",
+            "tts": "ready" if tts_ready else "not_ready",
         }
 
     return {
@@ -94,6 +102,7 @@ async def ready():
         "vad": ("ready" if vad_service.enabled else "disabled"),
         "asr": ("ready" if asr_service.enabled else "disabled"),
         "qualification": ("ready" if qualification_service.enabled else "disabled"),
+        "tts": ("ready" if tts_service.enabled else "disabled"),
     }
 
 
@@ -247,4 +256,63 @@ async def qualification_test(request: QualificationTestRequest):
             "medicare_part_b": result.lead.medicare_part_b,
             "zip_code": result.lead.zip_code,
         },
+    }
+
+
+@app.get("/internal/tts/status")
+async def tts_status():
+    return {
+        "enabled": (
+            tts_service.enabled
+        ),
+        "mode": "pregenerated",
+        "asset_version": (
+            tts_service.settings
+            .tts_asset_version
+        ),
+        "sample_rate": (
+            tts_service.settings
+            .tts_sample_rate
+        ),
+        "connected_calls": (
+            tts_service.connected_calls
+        ),
+        "active_playbacks": (
+            tts_metrics
+            .active_playbacks
+        ),
+        "requests_total": (
+            tts_metrics
+            .requests_total
+        ),
+        "completed_total": (
+            tts_metrics
+            .completed_total
+        ),
+        "playback_errors": (
+            tts_metrics
+            .playback_errors
+        ),
+        "queue_overflows": (
+            tts_metrics
+            .queue_overflows
+        ),
+        "assets_missing": (
+            tts_metrics
+            .assets_missing
+        ),
+        "first_audio_average_ms": (
+            round(
+                tts_metrics
+                .average_first_audio_ms(),
+                3,
+            )
+        ),
+        "first_audio_p95_ms": (
+            round(
+                tts_metrics
+                .p95_first_audio_ms(),
+                3,
+            )
+        ),
     }

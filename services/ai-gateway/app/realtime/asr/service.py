@@ -8,6 +8,7 @@ logger = logging.getLogger("talkflow.asr")
 
 from app.core.config import get_settings
 from app.realtime.qualification.service import qualification_service
+from app.realtime.tts.service import tts_service
 from app.realtime.vad.types import VadEvent, VadEventType
 
 from .metrics import asr_metrics
@@ -570,11 +571,18 @@ class AsrService:
                 rtf,
             )
 
-            await qualification_service.process_final_transcript(
+            qualification_result = await qualification_service.process_final_transcript(
                 connection_id=event.connection_id,
                 session_uuid=event.session_uuid,
                 text=event.text,
             )
+
+            if qualification_result is not None:
+                await tts_service.handle_action(
+                    connection_id=event.connection_id,
+                    session_uuid=event.session_uuid,
+                    action=qualification_result.action,
+                )
 
 
 asr_service = AsrService()

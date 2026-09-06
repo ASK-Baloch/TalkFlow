@@ -6,6 +6,7 @@ from contextlib import suppress
 from app.core.config import get_settings
 from app.realtime.asr.service import asr_service
 from app.realtime.qualification.service import qualification_service
+from app.realtime.tts.service import tts_service
 from app.realtime.vad.service import vad_service
 
 from .constants import AudioSocketMessageType
@@ -80,10 +81,28 @@ class AudioSocketServer:
         await session_manager.add(session)
         await vad_service.attach_session(session.connection_id)
         await asr_service.attach_session(session.connection_id)
-        await qualification_service.attach_session(
+        qualification_session = await qualification_service.attach_session(
             connection_id=session.connection_id,
             session_uuid=session.session_uuid,
         )
+        await tts_service.attach_connection(
+            connection_id=session.connection_id,
+            writer=writer,
+        )
+
+        if qualification_session is not None:
+            initial_action = (
+                qualification_service.engine
+                .initial_action(
+                    qualification_session
+                )
+            )
+
+            await tts_service.play_initial_prompt(
+                connection_id=session.connection_id,
+                session_uuid=session.session_uuid,
+                action=initial_action,
+            )
 
         audiosocket_metrics.connections_total += 1
         audiosocket_metrics.active_connections += 1
@@ -135,6 +154,7 @@ class AudioSocketServer:
             await asr_service.detach_session(connection_id)
             await vad_service.detach_session(connection_id)
             await qualification_service.detach_session(connection_id)
+            await tts_service.detach_connection(connection_id)
             await session_manager.remove(connection_id)
 
             audiosocket_metrics.active_connections = max(

@@ -125,11 +125,7 @@ class FasterWhisperProvider(AsrProvider):
         beam_size: int,
         context_hints: list[str] | None = None,
     ) -> AsrDecodeResult:
-        # Build initial prompt combining base prompt and hints
         prompt = self.initial_prompt
-        if context_hints:
-            hints_str = " ".join(context_hints)
-            prompt = f"{prompt} {hints_str}".strip()
 
         segments, info = self.model.transcribe(
             audio,
