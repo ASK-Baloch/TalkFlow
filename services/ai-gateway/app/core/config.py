@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     asr_partial_min_audio_ms: int = 640
     asr_partial_interval_ms: int = 480
 
-    asr_final_beam_size: int = 1
+    asr_final_beam_size: int = 5
     asr_partial_beam_size: int = 1
 
     asr_max_utterance_seconds: int = 30
@@ -77,6 +77,33 @@ class Settings(BaseSettings):
     qualification_log_field_values: bool = False
     qualification_debug_endpoints: bool = False
     audiosocket_echo_enabled: bool = True
+    tts_enabled: bool = False
+
+    tts_mode: str = "pregenerated"
+
+    tts_asset_version: str = "talkflow-v1"
+    tts_asset_dir: str = "assets/tts/talkflow-v1"
+
+    tts_sample_rate: int = 8000
+    tts_sample_width_bytes: int = 2
+    tts_channels: int = 1
+
+    tts_frame_ms: int = 20
+
+    tts_cache_enabled: bool = True
+    tts_cache_prefix: str = "talkflow:tts"
+    tts_cache_local_fallback: bool = True
+
+    tts_redis_db: int = 0
+
+    tts_playback_queue_size: int = 8
+    tts_interrupt_enabled: bool = False
+
+    tts_voice: str = "af_heart"
+    tts_speed: float = 1.0
+    tts_language: str = "en-us"
+
+    tts_log_text: bool = False
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../../.env"),
