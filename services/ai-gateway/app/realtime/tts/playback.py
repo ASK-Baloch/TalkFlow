@@ -52,12 +52,20 @@ class AudioSocketPcmPlayer:
             * self.sample_width_bytes
         )
 
-    async def play(
+        self.next_deadline: float | None = None
+
+    def reset(self) -> None:
+        self.next_deadline = None
+
+    async def play_chunk(
         self,
         *,
         writer: asyncio.StreamWriter,
         pcm: bytes,
     ) -> None:
+        if not pcm:
+            return
+
         if len(pcm) % (
             self.sample_width_bytes
         ):
@@ -71,9 +79,8 @@ class AudioSocketPcmPlayer:
 
         loop = asyncio.get_running_loop()
 
-        next_deadline = (
-            loop.time()
-        )
+        if self.next_deadline is None:
+            self.next_deadline = loop.time()
 
         offset = 0
 
@@ -112,12 +119,12 @@ class AudioSocketPcmPlayer:
                 self.bytes_per_frame
             )
 
-            next_deadline += (
+            self.next_deadline += (
                 frame_duration
             )
 
             delay = (
-                next_deadline
+                self.next_deadline
                 - loop.time()
             )
 
