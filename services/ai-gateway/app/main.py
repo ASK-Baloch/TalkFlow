@@ -5,15 +5,16 @@ from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.registry import registry
 from app.realtime.asr.metrics import asr_metrics
-from app.realtime.asr.service import asr_service
+from app.realtime.asr.service import AsrService
 from app.realtime.audiosocket.manager import session_manager
 from app.realtime.audiosocket.metrics import audiosocket_metrics
 from app.realtime.audiosocket.server import audiosocket_server
 from app.realtime.qualification.metrics import qualification_metrics
 from app.realtime.qualification.service import qualification_service
 from app.realtime.tts.metrics import tts_metrics
-from app.realtime.tts.service import tts_service
+from app.realtime.tts.service import TTSService
 from app.realtime.vad.metrics import vad_metrics
 from app.realtime.vad.service import vad_service
 
@@ -22,14 +23,44 @@ from app.realtime.vad.service import vad_service
 async def lifespan(app: FastAPI):
     configure_logging()
 
+    from app.realtime.providers.loader import create_provider
+
+    settings = get_settings()
+
+    stt_provider = create_provider(
+        settings.stt_provider_class,
+        settings=settings,
+    )
+    
+    pregenerated_provider = create_provider(
+        settings.tts_pregenerated_provider_class,
+        settings=settings,
+    )
+    
+    dynamic_provider = create_provider(
+        settings.tts_dynamic_provider_class,
+        settings=settings,
+    )
+    
+    if hasattr(stt_provider, "start"):
+        await stt_provider.start()
+        
+    if hasattr(pregenerated_provider, "start"):
+        await pregenerated_provider.start()
+        
+    if hasattr(dynamic_provider, "start"):
+        await dynamic_provider.start()
+
+    registry.asr_service = AsrService(provider=stt_provider)
+    registry.tts_service = TTSService(
+        pregenerated_provider=pregenerated_provider,
+        dynamic_provider=dynamic_provider,
+    )
+
     await vad_service.start()
-
-    await asr_service.start()
-
+    await registry.asr_service.start()
     await qualification_service.start()
-
-    await tts_service.start()
-
+    await registry.tts_service.start()
     await audiosocket_server.start()
 
     try:
@@ -38,12 +69,10 @@ async def lifespan(app: FastAPI):
     finally:
         await audiosocket_server.stop()
 
-        await tts_service.stop()
+        await registry.tts_service.stop()
 
-        # Stop ASR after audiosocket stops accepting calls, so ongoing processing can wind down or cancel
-        # Currently we don't have an explicit asr_service.stop() method implemented but we will call it if it exists
-        if hasattr(asr_service, "stop"):
-            await asr_service.stop()
+        if hasattr(registry.asr_service, "stop"):
+            await registry.asr_service.stop()
 
         await vad_service.stop()
 
@@ -81,11 +110,11 @@ async def health():
 @app.get("/ready")
 async def ready():
     vad_ready = not vad_service.enabled or vad_service.pool.ready
-    asr_ready = not asr_service.enabled or getattr(asr_service, "is_ready", False)
+    asr_ready = not registry.asr_service.enabled or getattr(registry.asr_service, "is_ready", False)
     qualification_ready = (
         not qualification_service.enabled or qualification_service.engine is not None
     )
-    tts_ready = not tts_service.enabled or tts_service.cache._manifest is not None
+    tts_ready = not registry.tts_service.enabled or getattr(registry.tts_service, "enabled", False)
 
     if not vad_ready or not asr_ready or not qualification_ready or not tts_ready:
         return {
@@ -100,9 +129,9 @@ async def ready():
         "status": "ready",
         "audiosocket": "ready",
         "vad": ("ready" if vad_service.enabled else "disabled"),
-        "asr": ("ready" if asr_service.enabled else "disabled"),
+        "asr": ("ready" if registry.asr_service.enabled else "disabled"),
         "qualification": ("ready" if qualification_service.enabled else "disabled"),
-        "tts": ("ready" if tts_service.enabled else "disabled"),
+        "tts": ("ready" if registry.tts_service.enabled else "disabled"),
     }
 
 
@@ -139,18 +168,18 @@ async def vad_status():
 @app.get("/internal/asr/status")
 async def asr_status():
     return {
-        "enabled": asr_service.enabled,
-        "ready": asr_service.enabled and asr_service.scheduler is not None,
+        "enabled": registry.asr_service.enabled,
+        "ready": registry.asr_service.enabled and registry.asr_service.scheduler is not None,
         "provider": "faster_whisper",
-        "model": asr_service.settings.asr_model if asr_service.enabled else None,
-        "device": asr_service.settings.asr_device if asr_service.enabled else None,
-        "compute_type": asr_service.settings.asr_compute_type
-        if asr_service.enabled
+        "model": registry.asr_service.settings.asr_model if registry.asr_service.enabled else None,
+        "device": registry.asr_service.settings.asr_device if registry.asr_service.enabled else None,
+        "compute_type": registry.asr_service.settings.asr_compute_type
+        if registry.asr_service.enabled
         else None,
-        "queue_size": asr_service.scheduler.queue.qsize()
-        if asr_service.enabled and asr_service.scheduler
+        "queue_size": registry.asr_service.scheduler.queue.qsize()
+        if registry.asr_service.enabled and registry.asr_service.scheduler
         else 0,
-        "workers": asr_service.settings.asr_workers if asr_service.enabled else 0,
+        "workers": registry.asr_service.settings.asr_workers if registry.asr_service.enabled else 0,
         "active_sessions": asr_metrics.active_sessions,
         "partials_emitted": asr_metrics.partials_emitted,
         "finals_emitted": asr_metrics.finals_emitted,
@@ -263,19 +292,19 @@ async def qualification_test(request: QualificationTestRequest):
 async def tts_status():
     return {
         "enabled": (
-            tts_service.enabled
+            registry.tts_service.enabled
         ),
         "mode": "pregenerated",
         "asset_version": (
-            tts_service.settings
+            registry.tts_service.settings
             .tts_asset_version
         ),
         "sample_rate": (
-            tts_service.settings
+            registry.tts_service.settings
             .tts_sample_rate
         ),
         "connected_calls": (
-            tts_service.connected_calls
+            registry.tts_service.connected_calls
         ),
         "active_playbacks": (
             tts_metrics
@@ -316,3 +345,18 @@ async def tts_status():
             )
         ),
     }
+
+class TTSDynamicRequest(BaseModel):
+    connection_id: str
+    text: str
+
+@app.post("/internal/tts/dynamic")
+async def tts_dynamic_test(request: TTSDynamicRequest):
+    success = await registry.tts_service.play_text(
+        connection_id=request.connection_id,
+        session_uuid=None,
+        text=request.text,
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to play text")
+    return {"success": True}

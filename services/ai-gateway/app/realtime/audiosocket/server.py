@@ -4,9 +4,8 @@ import uuid
 from contextlib import suppress
 
 from app.core.config import get_settings
-from app.realtime.asr.service import asr_service
+from app.core.registry import registry
 from app.realtime.qualification.service import qualification_service
-from app.realtime.tts.service import tts_service
 from app.realtime.vad.service import vad_service
 
 from .constants import AudioSocketMessageType
@@ -80,12 +79,12 @@ class AudioSocketServer:
 
         await session_manager.add(session)
         await vad_service.attach_session(session.connection_id)
-        await asr_service.attach_session(session.connection_id)
+        await registry.asr_service.attach_session(session.connection_id)
         qualification_session = await qualification_service.attach_session(
             connection_id=session.connection_id,
             session_uuid=session.session_uuid,
         )
-        await tts_service.attach_connection(
+        await registry.tts_service.attach_connection(
             connection_id=session.connection_id,
             writer=writer,
         )
@@ -98,7 +97,7 @@ class AudioSocketServer:
                 )
             )
 
-            await tts_service.play_initial_prompt(
+            await registry.tts_service.play_initial_prompt(
                 connection_id=session.connection_id,
                 session_uuid=session.session_uuid,
                 action=initial_action,
@@ -151,10 +150,10 @@ class AudioSocketServer:
         finally:
             session.terminated = True
 
-            await asr_service.detach_session(connection_id)
+            await registry.asr_service.detach_session(connection_id)
             await vad_service.detach_session(connection_id)
             await qualification_service.detach_session(connection_id)
-            await tts_service.detach_connection(connection_id)
+            await registry.tts_service.detach_connection(connection_id)
             await session_manager.remove(connection_id)
 
             audiosocket_metrics.active_connections = max(
@@ -299,7 +298,7 @@ class AudioSocketServer:
 
         # VAD currently consumes native 8k AudioSocket PCM only.
         if message_type == AudioSocketMessageType.PCM_8K:
-            await asr_service.push_pcm(
+            await registry.asr_service.push_pcm(
                 connection_id=session.connection_id,
                 session_uuid=session.session_uuid,
                 payload=payload,
@@ -312,7 +311,7 @@ class AudioSocketServer:
             )
 
             for event in vad_events:
-                await asr_service.handle_vad_event(
+                await registry.asr_service.handle_vad_event(
                     connection_id=session.connection_id,
                     session_uuid=session.session_uuid,
                     event=event,

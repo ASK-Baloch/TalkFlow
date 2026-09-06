@@ -1,8 +1,9 @@
 import asyncio
 import sys
-import numpy as np
-import soundfile as sf
 import time
+
+import soundfile as sf
+
 
 async def main():
     sys.path.append("/app")

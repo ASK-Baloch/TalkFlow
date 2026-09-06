@@ -1,12 +1,8 @@
-import os
-import sys
-import time
-import json
 import csv
+import json
 import subprocess
+import sys
 import wave
-import soxr
-import numpy as np
 from datetime import datetime
 from pathlib import Path
 

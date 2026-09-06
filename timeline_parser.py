@@ -1,5 +1,3 @@
-import re
-import sys
 
 def parse_logs(filepath):
     events = []
@@ -12,8 +10,7 @@ def parse_logs(filepath):
                 events.append(line.strip())
                 
     with open('timeline.txt', 'w') as f:
-        for e in events:
-            f.write(e + "\n")
+        f.writelines(e + "\n" for e in events)
             
 if __name__ == "__main__":
     parse_logs("ai-gateway_live.log")

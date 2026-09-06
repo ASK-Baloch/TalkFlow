@@ -4,12 +4,13 @@ import numpy as np
 import pytest
 
 from app.core.config import get_settings
-from app.realtime.asr.faster_whisper import FasterWhisperProvider
+from app.realtime.providers.stt_faster_whisper import FasterWhisperSTTProvider
 
 
+@pytest.mark.asyncio
 @pytest.mark.gpu
-@mock.patch("app.realtime.asr.faster_whisper.WhisperModel")
-def test_faster_whisper_smoke(mock_whisper_model):
+@mock.patch("app.realtime.providers.stt_faster_whisper.WhisperModel")
+async def test_faster_whisper_smoke(mock_whisper_model):
     # Setup mock behavior to avoid network calls to huggingface hub
     mock_model_instance = mock_whisper_model.return_value
     mock_segment = mock.MagicMock()
@@ -18,18 +19,17 @@ def test_faster_whisper_smoke(mock_whisper_model):
 
     settings = get_settings()
 
-    provider = FasterWhisperProvider(
+    provider = FasterWhisperSTTProvider(
         model_name="tiny.en",
         device="cpu",
         compute_type="int8",
         language=settings.asr_language,
-        condition_on_previous_text=False,
-        word_timestamps=False,
-        initial_prompt=settings.asr_initial_prompt,
     )
 
     # 1 second of silence
     audio = np.zeros(16000, dtype=np.float32)
+
+    await provider.start()
 
     result = provider.transcribe(audio, beam_size=1)
 

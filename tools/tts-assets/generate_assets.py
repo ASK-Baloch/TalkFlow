@@ -4,10 +4,10 @@ import argparse
 import hashlib
 import json
 import sys
+import time
 import wave
 from pathlib import Path
 
-import time
 import numpy as np
 import soxr
 from kokoro_onnx import Kokoro
@@ -40,7 +40,7 @@ sys.path.insert(
     ),
 )
 
-from app.realtime.tts.catalog import RESPONSES  # noqa: E402
+from app.realtime.tts.catalog import RESPONSES
 
 
 def float32_to_pcm16(

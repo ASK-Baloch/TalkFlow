@@ -1,9 +1,11 @@
 import glob
 import os
 import time
+
 import numpy as np
 import soundfile as sf
 from faster_whisper import WhisperModel
+
 
 def main():
     print("Loading model...")
