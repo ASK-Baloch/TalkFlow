@@ -3,6 +3,9 @@ import uuid
 
 import pytest
 
+from unittest import mock
+
+from app.core.registry import registry
 from app.realtime.audiosocket.protocol import (
     encode_packet,
     read_packet,
@@ -10,9 +13,10 @@ from app.realtime.audiosocket.protocol import (
 from app.realtime.audiosocket.server import AudioSocketServer
 from app.realtime.vad.service import vad_service
 
-
 @pytest.mark.asyncio
 async def test_echo_audio():
+    registry.asr_service = mock.AsyncMock()
+    registry.tts_service = mock.AsyncMock()
     server = AudioSocketServer()
 
     server.host = "127.0.0.1"
