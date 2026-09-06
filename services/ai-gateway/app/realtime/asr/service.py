@@ -7,8 +7,8 @@ import numpy as np
 logger = logging.getLogger("talkflow.asr")
 
 from app.core.config import get_settings
+from app.core.registry import registry
 from app.realtime.qualification.service import qualification_service
-from app.realtime.tts.service import tts_service
 from app.realtime.vad.types import VadEvent, VadEventType
 
 from .metrics import asr_metrics
@@ -17,7 +17,7 @@ from .types import TranscriptEvent, TranscriptType
 
 
 class AsrService:
-    def __init__(self):
+    def __init__(self, provider=None):
         settings = get_settings()
 
         self.enabled = settings.asr_enabled
@@ -28,36 +28,17 @@ class AsrService:
 
         self.is_ready = False
 
-        self.provider = None
+        self.provider = provider
         self.scheduler = None
 
     async def start(self):
         if not self.enabled:
             return
 
-        if self.settings.asr_provider == "nemo":
-            from .nemo_provider import NemoProvider
 
-            self.provider = await asyncio.to_thread(
-                NemoProvider,
-                model_path=self.settings.asr_model,
-                device=self.settings.asr_device,
-            )
-        else:
-            from .faster_whisper import FasterWhisperProvider
 
-            self.provider = await asyncio.to_thread(
-                FasterWhisperProvider,
-                model_name=self.settings.asr_model,
-                device=self.settings.asr_device,
-                compute_type=(self.settings.asr_compute_type),
-                language=(self.settings.asr_language),
-                condition_on_previous_text=(
-                    self.settings.asr_condition_on_previous_text
-                ),
-                word_timestamps=(self.settings.asr_word_timestamps),
-                initial_prompt=(self.settings.asr_initial_prompt),
-            )
+        if hasattr(self.provider, "start"):
+            await self.provider.start()
 
         self.scheduler = AsrScheduler(
             provider=self.provider,
@@ -192,7 +173,7 @@ class AsrService:
 
             # Open a new stateful stream for this utterance
             asr_stream = None
-            if self.provider:
+            if self.provider and hasattr(self.provider, "open_stream"):
                 from app.core.config import get_asr_vocabulary
 
                 vocab = get_asr_vocabulary()
@@ -578,11 +559,11 @@ class AsrService:
             )
 
             if qualification_result is not None:
-                await tts_service.handle_action(
+                await registry.tts_service.handle_action(
                     connection_id=event.connection_id,
                     session_uuid=event.session_uuid,
                     action=qualification_result.action,
                 )
 
 
-asr_service = AsrService()
+

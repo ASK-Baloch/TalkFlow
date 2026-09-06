@@ -8,7 +8,6 @@ from pathlib import Path
 import numpy as np
 import soxr
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 ASSET_DIR = ROOT / "assets" / "tts" / "talkflow-chatterbox-v1"

@@ -1,7 +1,8 @@
+import json
 import os
 import sys
 import time
-import json
+
 import torch
 import torchaudio
 
@@ -12,6 +13,7 @@ sys.path.append(COSYVOICE_DIR)
 sys.path.append(os.path.join(COSYVOICE_DIR, 'third_party', 'Matcha-TTS'))
 
 from cosyvoice.cli.cosyvoice import AutoModel
+
 
 def main():
     model_dir = os.path.join(BENCHMARK_DIR, 'models', 'Fun-CosyVoice3-0.5B-2512')

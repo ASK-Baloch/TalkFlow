@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     asr_enabled: bool = False
     asr_provider: str = "nemo"
 
+    stt_provider_class: str = "app.realtime.providers.stt_faster_whisper:FasterWhisperSTTProvider"
+
     asr_model: str = "models/parakeet-unified-en-0.6b.nemo"
     asr_device: str = "cuda"
     asr_compute_type: str = "float16"
@@ -79,6 +81,12 @@ class Settings(BaseSettings):
     audiosocket_echo_enabled: bool = True
     tts_enabled: bool = False
 
+    tts_pregenerated_provider_class: str = "app.realtime.providers.tts_pregenerated:PregeneratedTTSProvider"
+    tts_dynamic_provider_class: str = "app.realtime.providers.tts_chatterbox_http:ChatterboxHttpTTSProvider"
+    tts_worker_url: str = "http://127.0.0.1:8091"
+    tts_worker_timeout_seconds: float = 5.0
+    tts_default_voice_id: str = "talkflow_primary"
+
     tts_mode: str = "pregenerated"
 
     tts_asset_version: str = "talkflow-v1"
@@ -104,6 +112,9 @@ class Settings(BaseSettings):
     tts_language: str = "en-us"
 
     tts_log_text: bool = False
+    
+    tts_dummy_frames: int = 10
+    stt_dummy_text: str = "Yes"
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../../.env"),

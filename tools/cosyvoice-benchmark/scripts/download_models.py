@@ -1,5 +1,7 @@
 import os
+
 from modelscope import snapshot_download
+
 
 def download_models():
     models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models'))

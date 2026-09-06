@@ -12,7 +12,6 @@ from app.realtime.qualification.types import (
     ConversationAction,
 )
 
-from .cache import TtsAssetCache
 from .catalog import (
     response_for_action,
 )
@@ -44,9 +43,11 @@ class PlaybackConnection:
     )
 
 
-class PregeneratedTtsService:
+class TTSService:
     def __init__(
         self,
+        pregenerated_provider=None,
+        dynamic_provider=None,
     ) -> None:
         settings = get_settings()
 
@@ -61,24 +62,8 @@ class PregeneratedTtsService:
             PlaybackConnection,
         ] = {}
 
-        self.cache = TtsAssetCache(
-            prefix=(
-                settings.tts_cache_prefix
-            ),
-            version=(
-                settings.tts_asset_version
-            ),
-            asset_dir=(
-                settings.tts_asset_dir
-            ),
-            cache_enabled=(
-                settings.tts_cache_enabled
-            ),
-            local_fallback=(
-                settings
-                .tts_cache_local_fallback
-            ),
-        )
+        self.pregenerated_provider = pregenerated_provider
+        self.dynamic_provider = dynamic_provider
 
         self.player = (
             AudioSocketPcmPlayer(
@@ -105,7 +90,11 @@ class PregeneratedTtsService:
 
             return
 
-        await self.cache.start()
+        if hasattr(self.pregenerated_provider, "start"):
+            await self.pregenerated_provider.start()
+
+        if hasattr(self.dynamic_provider, "start"):
+            await self.dynamic_provider.start()
 
         logger.info(
             (
@@ -133,7 +122,11 @@ class PregeneratedTtsService:
                 connection_id
             )
 
-        await self.cache.stop()
+        if hasattr(self.pregenerated_provider, "stop"):
+            await self.pregenerated_provider.stop()
+
+        if hasattr(self.dynamic_provider, "stop"):
+            await self.dynamic_provider.stop()
 
     async def attach_connection(
         self,
@@ -310,6 +303,64 @@ class PregeneratedTtsService:
             action=action,
         )
 
+    async def play_text(
+        self,
+        *,
+        connection_id: str,
+        session_uuid: str | None,
+        text: str,
+    ) -> bool:
+        if not self.enabled:
+            return False
+
+        connection = (
+            self._connections.get(
+                connection_id
+            )
+        )
+
+        if connection is None:
+            logger.warning(
+                (
+                    "No TTS playback connection "
+                    "connection_id=%s"
+                ),
+                connection_id,
+            )
+
+            return False
+
+        request = PlaybackRequest(
+            connection_id=(
+                connection_id
+            ),
+            session_uuid=(
+                session_uuid
+            ),
+            text=text,
+        )
+
+        if connection.queue.full():
+            tts_metrics.queue_overflows += 1
+
+            logger.error(
+                (
+                    "TTS playback queue full "
+                    "connection_id=%s"
+                ),
+                connection_id,
+            )
+
+            return False
+
+        connection.queue.put_nowait(
+            request
+        )
+
+        tts_metrics.requests_total += 1
+
+        return True
+
     async def _playback_worker(
         self,
         connection: PlaybackConnection,
@@ -325,47 +376,48 @@ class PregeneratedTtsService:
                     perf_counter_ns()
                 )
 
-                asset = (
-                    await self.cache.get(
-                        request.response_id
+                from app.realtime.providers.tts import TTSRequest
+
+                is_pregenerated = request.response_id is not None
+                provider = self.pregenerated_provider if is_pregenerated else self.dynamic_provider
+
+                tts_request = TTSRequest(
+                    text=request.text,
+                    response_id=request.response_id.value if request.response_id else None,
+                )
+
+                first_chunk = True
+                total_duration_ms = 0.0
+
+                self.player.reset()
+
+                async for chunk in provider.stream(tts_request):
+                    if first_chunk:
+                        first_chunk = False
+                        cache_ready_ns = perf_counter_ns()
+                        first_audio_ms = (cache_ready_ns - request.created_ns) / 1_000_000.0
+                        tts_metrics.first_audio_ms.append(first_audio_ms)
+                        tts_metrics.active_playbacks += 1
+
+                        logger.info(
+                            (
+                                "TTS playback start "
+                                "connection_id=%s "
+                                "type=%s "
+                                "ready_ms=%.2f"
+                            ),
+                            connection.connection_id,
+                            "pregenerated" if is_pregenerated else "dynamic",
+                            first_audio_ms,
+                        )
+
+                    chunk_duration_ms = (len(chunk.pcm) / (chunk.sample_width_bytes * chunk.channels * chunk.sample_rate)) * 1000
+                    total_duration_ms += chunk_duration_ms
+
+                    await self.player.play_chunk(
+                        writer=connection.writer,
+                        pcm=chunk.pcm,
                     )
-                )
-
-                cache_ready_ns = (
-                    perf_counter_ns()
-                )
-
-                first_audio_ms = (
-                    cache_ready_ns
-                    - request.created_ns
-                ) / 1_000_000.0
-
-                tts_metrics.first_audio_ms.append(
-                    first_audio_ms
-                )
-
-                tts_metrics.active_playbacks += 1
-
-                logger.info(
-                    (
-                        "TTS playback start "
-                        "connection_id=%s "
-                        "response_id=%s "
-                        "duration_ms=%.1f "
-                        "ready_ms=%.2f"
-                    ),
-                    connection.connection_id,
-                    request.response_id.value,
-                    asset.duration_ms,
-                    first_audio_ms,
-                )
-
-                await self.player.play(
-                    writer=(
-                        connection.writer
-                    ),
-                    pcm=asset.pcm,
-                )
 
                 tts_metrics.completed_total += 1
 
@@ -378,11 +430,13 @@ class PregeneratedTtsService:
                     (
                         "TTS playback complete "
                         "connection_id=%s "
-                        "response_id=%s "
+                        "type=%s "
+                        "audio_duration_ms=%.1f "
                         "total_ms=%.1f"
                     ),
                     connection.connection_id,
-                    request.response_id.value,
+                    "pregenerated" if is_pregenerated else "dynamic",
+                    total_duration_ms,
                     total_ms,
                 )
 
@@ -423,5 +477,4 @@ class PregeneratedTtsService:
     ) -> int:
         return len(self._connections)
 
-
-tts_service = PregeneratedTtsService()
+
