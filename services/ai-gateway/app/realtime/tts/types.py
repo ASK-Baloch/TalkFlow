@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from time import perf_counter_ns
+from uuid import uuid4
 
 
 class ResponseId(str, Enum):
@@ -29,6 +30,7 @@ class ResponseId(str, Enum):
 @dataclass(frozen=True, slots=True)
 class ResponseDefinition:
     response_id: ResponseId
+
     text: str
 
 
@@ -52,14 +54,26 @@ class AudioAsset:
 class PlaybackRequest:
     connection_id: str
 
+    generation: int
+
     response_id: ResponseId | None = None
 
     text: str | None = None
 
     session_uuid: str | None = None
 
+    request_id: str = ""
+
     created_ns: int = 0
 
-    def __post_init__(self) -> None:
+    def __post_init__(
+        self,
+    ) -> None:
+        if not self.request_id:
+            self.request_id = str(uuid4())
+
         if self.created_ns == 0:
             self.created_ns = perf_counter_ns()
+
+        if self.response_id is None and not self.text:
+            raise ValueError("PlaybackRequest requires response_id or text")

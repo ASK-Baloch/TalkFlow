@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.registry import registry
 from app.realtime.qualification.service import qualification_service
 from app.realtime.vad.service import vad_service
+from app.realtime.vad.types import VadEventType
 
 from .constants import AudioSocketMessageType
 from .manager import session_manager
@@ -80,7 +81,7 @@ class AudioSocketServer:
         await session_manager.add(session)
         await vad_service.attach_session(session.connection_id)
         await registry.asr_service.attach_session(session.connection_id)
-        qualification_session = await qualification_service.attach_session(
+        await qualification_service.attach_session(
             connection_id=session.connection_id,
             session_uuid=session.session_uuid,
         )
@@ -88,20 +89,6 @@ class AudioSocketServer:
             connection_id=session.connection_id,
             writer=writer,
         )
-
-        if qualification_session is not None:
-            initial_action = (
-                qualification_service.engine
-                .initial_action(
-                    qualification_session
-                )
-            )
-
-            await registry.tts_service.play_initial_prompt(
-                connection_id=session.connection_id,
-                session_uuid=session.session_uuid,
-                action=initial_action,
-            )
 
         audiosocket_metrics.connections_total += 1
         audiosocket_metrics.active_connections += 1
@@ -202,7 +189,7 @@ class AudioSocketServer:
                 return
 
             if message_type == AudioSocketMessageType.UUID:
-                self._handle_uuid(
+                await self._handle_uuid(
                     session=session,
                     payload=payload,
                 )
@@ -247,7 +234,7 @@ class AudioSocketServer:
                 len(payload),
             )
 
-    def _handle_uuid(
+    async def _handle_uuid(
         self,
         session: AudioSocketSession,
         payload: bytes,
@@ -259,11 +246,32 @@ class AudioSocketServer:
 
         session.session_uuid = str(uuid.UUID(bytes=payload))
 
+        # Update the session UUID in qualification service
+        qualification_session = await qualification_service.attach_session(
+            connection_id=session.connection_id,
+            session_uuid=session.session_uuid,
+        )
+
         logger.info(
             "AudioSocket UUID registered connection_id=%s uuid=%s",
             session.connection_id,
             session.session_uuid,
         )
+
+        if qualification_session is not None:
+            initial_action = qualification_service.engine.initial_action(
+                qualification_session
+            )
+
+            if initial_action:
+                from app.realtime.tts.planner import response_planner
+
+                planned = response_planner.plan_action(initial_action)
+                if planned:
+                    await registry.tts_service.enqueue(
+                        connection_id=session.connection_id,
+                        planned=planned,
+                    )
 
     def _handle_dtmf(
         self,
@@ -311,6 +319,12 @@ class AudioSocketServer:
             )
 
             for event in vad_events:
+                if event.event_type == VadEventType.SPEECH_START:
+                    if getattr(registry, "barge_in_controller", None):
+                        await registry.barge_in_controller.on_speech_start(
+                            connection_id=session.connection_id
+                        )
+
                 await registry.asr_service.handle_vad_event(
                     connection_id=session.connection_id,
                     session_uuid=session.session_uuid,

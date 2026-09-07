@@ -11,9 +11,7 @@ from .stt import (
 )
 
 
-class FasterWhisperSTTProvider(
-    STTProvider
-):
+class FasterWhisperSTTProvider(STTProvider):
     provider_name = "faster_whisper"
 
     def __init__(
@@ -29,9 +27,7 @@ class FasterWhisperSTTProvider(
         self.compute_type = compute_type
         self.language = language
 
-        self.model: WhisperModel | None = (
-            None
-        )
+        self.model: WhisperModel | None = None
 
     @classmethod
     def from_settings(
@@ -39,18 +35,10 @@ class FasterWhisperSTTProvider(
         settings: Any,
     ) -> FasterWhisperSTTProvider:
         return cls(
-            model_name=(
-                settings.asr_model
-            ),
-            device=(
-                settings.asr_device
-            ),
-            compute_type=(
-                settings.asr_compute_type
-            ),
-            language=(
-                settings.asr_language
-            ),
+            model_name=(settings.asr_model),
+            device=(settings.asr_device),
+            compute_type=(settings.asr_compute_type),
+            language=(settings.asr_language),
         )
 
     async def start(
@@ -62,9 +50,7 @@ class FasterWhisperSTTProvider(
         self.model = WhisperModel(
             self.model_name,
             device=self.device,
-            compute_type=(
-                self.compute_type
-            ),
+            compute_type=(self.compute_type),
         )
 
     async def stop(
@@ -79,32 +65,23 @@ class FasterWhisperSTTProvider(
         beam_size: int = 1,
     ) -> STTResult:
         if self.model is None:
-            raise RuntimeError(
-                "Faster-Whisper provider "
-                "has not been started"
-            )
+            raise RuntimeError("Faster-Whisper provider has not been started")
 
-        segments, info = (
-            self.model.transcribe(
-                audio,
-                language=self.language,
-                beam_size=beam_size,
-                vad_filter=False,
-                condition_on_previous_text=False,
-                word_timestamps=False,
-            )
+        segments, info = self.model.transcribe(
+            audio,
+            language=self.language,
+            beam_size=beam_size,
+            vad_filter=True,
+            condition_on_previous_text=False,
+            word_timestamps=False,
         )
 
         # Faster-Whisper performs actual decoding while
         # consuming its segment iterator.
-        segments = list(
-            segments
-        )
+        segments = list(segments)
 
         text = " ".join(
-            segment.text.strip()
-            for segment in segments
-            if segment.text.strip()
+            segment.text.strip() for segment in segments if segment.text.strip()
         ).strip()
 
         return STTResult(
@@ -125,22 +102,14 @@ class FasterWhisperSTTProvider(
         self,
     ) -> dict[str, Any]:
         return {
-            "provider": (
-                self.provider_name
-            ),
+            "provider": (self.provider_name),
             "model": self.model_name,
             "device": self.device,
-            "compute_type": (
-                self.compute_type
-            ),
-            "ready": (
-                self.model is not None
-            ),
+            "compute_type": (self.compute_type),
+            "ready": (self.model is not None),
         }
 
 
 # Compatibility alias for Phase 3 code that may
 # still import FasterWhisperProvider.
-FasterWhisperProvider = (
-    FasterWhisperSTTProvider
-)
+FasterWhisperProvider = FasterWhisperSTTProvider
