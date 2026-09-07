@@ -10,9 +10,7 @@ from .stt import (
 )
 
 
-class DummySTTProvider(
-    STTProvider
-):
+class DummySTTProvider(STTProvider):
     provider_name = "dummy"
 
     def __init__(
@@ -33,9 +31,7 @@ class DummySTTProvider(
             "This is a dummy transcript.",
         )
 
-        return cls(
-            text=text
-        )
+        return cls(text=text)
 
     def transcribe(
         self,
