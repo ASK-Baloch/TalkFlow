@@ -7,49 +7,23 @@ def test_generated_assets_are_valid():
     repo_root = Path(__file__).resolve().parents[5]
     root = repo_root / "assets/tts/talkflow-v1"
 
-    manifest = json.loads(
-        (
-            root / "manifest.json"
-        ).read_text(
-            encoding="utf-8"
-        )
-    )
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
 
-    assert (
-        manifest["sample_rate"]
-        == 8000
-    )
+    assert manifest["sample_rate"] == 8000
 
-    assert (
-        manifest["channels"]
-        == 1
-    )
+    assert manifest["channels"] == 1
 
-    assert (
-        manifest[
-            "sample_width_bytes"
-        ]
-        == 2
-    )
+    assert manifest["sample_width_bytes"] == 2
 
-    assert manifest[
-        "responses"
-    ]
+    assert manifest["responses"]
 
     for (
         response_id,
         metadata,
-    ) in manifest[
-        "responses"
-    ].items():
-        path = (
-            root
-            / metadata["file"]
-        )
+    ) in manifest["responses"].items():
+        path = root / metadata["file"]
 
-        assert path.exists(), (
-            response_id
-        )
+        assert path.exists(), response_id
 
         pcm = path.read_bytes()
 
@@ -57,11 +31,6 @@ def test_generated_assets_are_valid():
 
         assert len(pcm) % 2 == 0
 
-        digest = hashlib.sha256(
-            pcm
-        ).hexdigest()
+        digest = hashlib.sha256(pcm).hexdigest()
 
-        assert (
-            digest
-            == metadata["sha256"]
-        )
+        assert digest == metadata["sha256"]
