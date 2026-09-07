@@ -31,30 +31,50 @@ async def lifespan(app: FastAPI):
         settings.stt_provider_class,
         settings=settings,
     )
-    
+
     pregenerated_provider = create_provider(
         settings.tts_pregenerated_provider_class,
         settings=settings,
     )
-    
+
     dynamic_provider = create_provider(
         settings.tts_dynamic_provider_class,
         settings=settings,
     )
-    
+
     if hasattr(stt_provider, "start"):
         await stt_provider.start()
-        
+
     if hasattr(pregenerated_provider, "start"):
         await pregenerated_provider.start()
-        
+
     if hasattr(dynamic_provider, "start"):
         await dynamic_provider.start()
 
     registry.asr_service = AsrService(provider=stt_provider)
     registry.tts_service = TTSService(
+        enabled=settings.tts_enabled,
         pregenerated_provider=pregenerated_provider,
         dynamic_provider=dynamic_provider,
+        sample_rate=settings.tts_sample_rate,
+        sample_width_bytes=2,
+        frame_ms=20,
+        queue_size=10,
+        interrupt_enabled=True,
+        flush_queue_on_interrupt=True,
+        drop_stale_audio=True,
+        barge_in_log_events=True,
+    )
+
+    from app.realtime.tts.barge_in import BargeInConfig, BargeInController
+
+    registry.barge_in_controller = BargeInController(
+        tts_service=registry.tts_service,
+        config=BargeInConfig(
+            enabled=getattr(settings, "barge_in_enabled", True),
+            grace_ms=getattr(settings, "barge_in_grace_ms", 0),
+            log_events=getattr(settings, "barge_in_log_events", True),
+        ),
     )
 
     await vad_service.start()
@@ -110,11 +130,15 @@ async def health():
 @app.get("/ready")
 async def ready():
     vad_ready = not vad_service.enabled or vad_service.pool.ready
-    asr_ready = not registry.asr_service.enabled or getattr(registry.asr_service, "is_ready", False)
+    asr_ready = not registry.asr_service.enabled or getattr(
+        registry.asr_service, "is_ready", False
+    )
     qualification_ready = (
         not qualification_service.enabled or qualification_service.engine is not None
     )
-    tts_ready = not registry.tts_service.enabled or getattr(registry.tts_service, "enabled", False)
+    tts_ready = not registry.tts_service.enabled or getattr(
+        registry.tts_service, "enabled", False
+    )
 
     if not vad_ready or not asr_ready or not qualification_ready or not tts_ready:
         return {
@@ -169,17 +193,24 @@ async def vad_status():
 async def asr_status():
     return {
         "enabled": registry.asr_service.enabled,
-        "ready": registry.asr_service.enabled and registry.asr_service.scheduler is not None,
+        "ready": registry.asr_service.enabled
+        and registry.asr_service.scheduler is not None,
         "provider": "faster_whisper",
-        "model": registry.asr_service.settings.asr_model if registry.asr_service.enabled else None,
-        "device": registry.asr_service.settings.asr_device if registry.asr_service.enabled else None,
+        "model": registry.asr_service.settings.asr_model
+        if registry.asr_service.enabled
+        else None,
+        "device": registry.asr_service.settings.asr_device
+        if registry.asr_service.enabled
+        else None,
         "compute_type": registry.asr_service.settings.asr_compute_type
         if registry.asr_service.enabled
         else None,
         "queue_size": registry.asr_service.scheduler.queue.qsize()
         if registry.asr_service.enabled and registry.asr_service.scheduler
         else 0,
-        "workers": registry.asr_service.settings.asr_workers if registry.asr_service.enabled else 0,
+        "workers": registry.asr_service.settings.asr_workers
+        if registry.asr_service.enabled
+        else 0,
         "active_sessions": asr_metrics.active_sessions,
         "partials_emitted": asr_metrics.partials_emitted,
         "finals_emitted": asr_metrics.finals_emitted,
@@ -291,72 +322,96 @@ async def qualification_test(request: QualificationTestRequest):
 @app.get("/internal/tts/status")
 async def tts_status():
     return {
-        "enabled": (
-            registry.tts_service.enabled
-        ),
+        "enabled": (registry.tts_service.enabled),
         "mode": "pregenerated",
-        "asset_version": (
-            registry.tts_service.settings
-            .tts_asset_version
+        "asset_version": (get_settings().tts_asset_version),
+        "sample_rate": (get_settings().tts_sample_rate),
+        "connected_calls": (registry.tts_service.connected_calls),
+        "active_playbacks": (tts_metrics.active_playbacks),
+        "requests_total": (tts_metrics.requests_total),
+        "completed_total": (tts_metrics.completed_total),
+        "playback_errors": (tts_metrics.playback_errors),
+        "queue_overflows": (tts_metrics.queue_overflows),
+        "assets_missing": (tts_metrics.assets_missing),
+        "barge_in_enabled": (get_settings().barge_in_enabled),
+        "interruptions_total": (tts_metrics.interruptions_total),
+        "interrupted_playbacks_total": (tts_metrics.interrupted_playbacks_total),
+        "flushed_requests_total": (tts_metrics.flushed_requests_total),
+        "stale_requests_dropped_total": (tts_metrics.stale_requests_dropped_total),
+        "stale_chunks_dropped_total": (tts_metrics.stale_chunks_dropped_total),
+        "barge_in_cancel_average_ms": (
+            round(
+                tts_metrics.average_barge_in_cancel_ms(),
+                3,
+            )
         ),
-        "sample_rate": (
-            registry.tts_service.settings
-            .tts_sample_rate
-        ),
-        "connected_calls": (
-            registry.tts_service.connected_calls
-        ),
-        "active_playbacks": (
-            tts_metrics
-            .active_playbacks
-        ),
-        "requests_total": (
-            tts_metrics
-            .requests_total
-        ),
-        "completed_total": (
-            tts_metrics
-            .completed_total
-        ),
-        "playback_errors": (
-            tts_metrics
-            .playback_errors
-        ),
-        "queue_overflows": (
-            tts_metrics
-            .queue_overflows
-        ),
-        "assets_missing": (
-            tts_metrics
-            .assets_missing
+        "barge_in_cancel_p95_ms": (
+            round(
+                tts_metrics.p95_barge_in_cancel_ms(),
+                3,
+            )
         ),
         "first_audio_average_ms": (
             round(
-                tts_metrics
-                .average_first_audio_ms(),
+                tts_metrics.average_first_audio_ms(),
                 3,
             )
         ),
         "first_audio_p95_ms": (
             round(
-                tts_metrics
-                .p95_first_audio_ms(),
+                tts_metrics.p95_first_audio_ms(),
                 3,
             )
         ),
     }
 
+
 class TTSDynamicRequest(BaseModel):
     connection_id: str
     text: str
 
+
 @app.post("/internal/tts/dynamic")
 async def tts_dynamic_test(request: TTSDynamicRequest):
-    success = await registry.tts_service.play_text(
-        connection_id=request.connection_id,
-        session_uuid=None,
+    from app.realtime.tts.planner import PlannedResponse, TTSRoute
+
+    planned = PlannedResponse(
+        route=TTSRoute.DYNAMIC,
         text=request.text,
+    )
+    success = await registry.tts_service.enqueue(
+        connection_id=request.connection_id,
+        planned=planned,
     )
     if not success:
         raise HTTPException(status_code=400, detail="Failed to play text")
+    return {"success": True}
+
+
+class TTSTestRequest(BaseModel):
+    connection_id: str
+    response_id: str
+
+
+@app.post("/internal/tts/test-playback")
+async def tts_test_playback(request: TTSTestRequest):
+    settings = get_settings()
+    if not getattr(settings, "qualification_debug_endpoints", False):
+        raise HTTPException(status_code=403, detail="Diagnostics endpoint disabled.")
+
+    from app.realtime.tts.planner import PlannedResponse, TTSRoute
+
+    planned = PlannedResponse(
+        route=TTSRoute.PREGENERATED,
+        response_id=request.response_id,
+    )
+
+    success = await registry.tts_service.enqueue(
+        connection_id=request.connection_id,
+        planned=planned,
+    )
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to enqueue test playback")
+
     return {"success": True}
