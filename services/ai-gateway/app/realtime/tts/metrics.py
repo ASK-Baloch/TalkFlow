@@ -22,13 +22,19 @@ class TtsMetrics:
 
     assets_missing: int = 0
 
-    first_audio_ms: deque[
-        float
-    ] = field(
-        default_factory=lambda: deque(
-            maxlen=5000
-        )
-    )
+    interruptions_total: int = 0
+
+    interrupted_playbacks_total: int = 0
+
+    flushed_requests_total: int = 0
+
+    stale_chunks_dropped_total: int = 0
+
+    stale_requests_dropped_total: int = 0
+
+    first_audio_ms: deque[float] = field(default_factory=lambda: deque(maxlen=5000))
+
+    barge_in_cancel_ms: deque[float] = field(default_factory=lambda: deque(maxlen=5000))
 
     def average_first_audio_ms(
         self,
@@ -36,10 +42,7 @@ class TtsMetrics:
         if not self.first_audio_ms:
             return 0.0
 
-        return (
-            sum(self.first_audio_ms)
-            / len(self.first_audio_ms)
-        )
+        return sum(self.first_audio_ms) / len(self.first_audio_ms)
 
     def p95_first_audio_ms(
         self,
@@ -47,14 +50,29 @@ class TtsMetrics:
         if not self.first_audio_ms:
             return 0.0
 
-        values = sorted(
-            self.first_audio_ms
-        )
+        values = sorted(self.first_audio_ms)
 
-        index = int(
-            0.95
-            * (len(values) - 1)
-        )
+        index = int(0.95 * (len(values) - 1))
+
+        return values[index]
+
+    def average_barge_in_cancel_ms(
+        self,
+    ) -> float:
+        if not self.barge_in_cancel_ms:
+            return 0.0
+
+        return sum(self.barge_in_cancel_ms) / len(self.barge_in_cancel_ms)
+
+    def p95_barge_in_cancel_ms(
+        self,
+    ) -> float:
+        if not self.barge_in_cancel_ms:
+            return 0.0
+
+        values = sorted(self.barge_in_cancel_ms)
+
+        index = int(0.95 * (len(values) - 1))
 
         return values[index]
 

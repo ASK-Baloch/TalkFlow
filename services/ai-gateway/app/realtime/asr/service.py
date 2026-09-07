@@ -35,8 +35,6 @@ class AsrService:
         if not self.enabled:
             return
 
-
-
         if hasattr(self.provider, "start"):
             await self.provider.start()
 
@@ -559,11 +557,13 @@ class AsrService:
             )
 
             if qualification_result is not None:
-                await registry.tts_service.handle_action(
-                    connection_id=event.connection_id,
-                    session_uuid=event.session_uuid,
-                    action=qualification_result.action,
-                )
+                from app.realtime.tts.planner import response_planner
 
+                planned = response_planner.plan_action(qualification_result.action)
 
-
+                if planned:
+                    await registry.tts_service.enqueue(
+                        connection_id=event.connection_id,
+                        planned=planned,
+                        session_uuid=event.session_uuid,
+                    )

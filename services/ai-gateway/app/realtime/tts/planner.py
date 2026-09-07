@@ -13,9 +13,7 @@ from .catalog import (
 
 
 class TTSRoute(str, Enum):
-    PREGENERATED = (
-        "pregenerated"
-    )
+    PREGENERATED = "pregenerated"
 
     DYNAMIC = "dynamic"
 
@@ -34,22 +32,14 @@ class ResponsePlanner:
         self,
         action: ConversationAction,
     ) -> PlannedResponse | None:
-        response = response_for_action(
-            action.action_type
-        )
+        response = response_for_action(action.action_type)
 
         if response is None:
             return None
 
         return PlannedResponse(
-            route=(
-                TTSRoute.PREGENERATED
-            ),
-            response_id=(
-                response
-                .response_id
-                .value
-            ),
+            route=(TTSRoute.PREGENERATED),
+            response_id=(response.response_id.value),
         )
 
     def plan_dynamic(
@@ -59,10 +49,7 @@ class ResponsePlanner:
         cleaned = text.strip()
 
         if not cleaned:
-            raise ValueError(
-                "Dynamic TTS text "
-                "cannot be empty"
-            )
+            raise ValueError("Dynamic TTS text cannot be empty")
 
         return PlannedResponse(
             route=TTSRoute.DYNAMIC,
@@ -70,6 +57,4 @@ class ResponsePlanner:
         )
 
 
-response_planner = (
-    ResponsePlanner()
-)
+response_planner = ResponsePlanner()

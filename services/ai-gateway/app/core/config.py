@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
-    vad_enabled: bool = False
+    vad_enabled: bool = True
     vad_provider: str = "silero"
     vad_device: str = "cpu"
     vad_use_onnx: bool = True
@@ -38,10 +38,12 @@ class Settings(BaseSettings):
     audiosocket_host: str = "0.0.0.0"
     audiosocket_port: int = 9019
 
-    asr_enabled: bool = False
+    asr_enabled: bool = True
     asr_provider: str = "nemo"
 
-    stt_provider_class: str = "app.realtime.providers.stt_faster_whisper:FasterWhisperSTTProvider"
+    stt_provider_class: str = (
+        "app.realtime.providers.stt_faster_whisper:FasterWhisperSTTProvider"
+    )
 
     asr_model: str = "models/parakeet-unified-en-0.6b.nemo"
     asr_device: str = "cuda"
@@ -71,18 +73,22 @@ class Settings(BaseSettings):
     asr_word_timestamps: bool = False
     asr_condition_on_previous_text: bool = False
     asr_initial_prompt: str = "TalkFlow."
-    qualification_enabled: bool = False
+    qualification_enabled: bool = True
     qualification_min_age: int = 65
     qualification_zip_length: int = 5
     qualification_max_clarifications_per_field: int = 3
     qualification_log_state_transitions: bool = True
     qualification_log_field_values: bool = False
     qualification_debug_endpoints: bool = False
-    audiosocket_echo_enabled: bool = True
-    tts_enabled: bool = False
+    audiosocket_echo_enabled: bool = False
+    tts_enabled: bool = True
 
-    tts_pregenerated_provider_class: str = "app.realtime.providers.tts_pregenerated:PregeneratedTTSProvider"
-    tts_dynamic_provider_class: str = "app.realtime.providers.tts_chatterbox_http:ChatterboxHttpTTSProvider"
+    tts_pregenerated_provider_class: str = (
+        "app.realtime.providers.tts_pregenerated:PregeneratedTTSProvider"
+    )
+    tts_dynamic_provider_class: str = (
+        "app.realtime.providers.tts_chatterbox_http:ChatterboxHttpTTSProvider"
+    )
     tts_worker_url: str = "http://127.0.0.1:8091"
     tts_worker_timeout_seconds: float = 5.0
     tts_default_voice_id: str = "talkflow_primary"
@@ -105,14 +111,22 @@ class Settings(BaseSettings):
     tts_redis_db: int = 0
 
     tts_playback_queue_size: int = 8
-    tts_interrupt_enabled: bool = False
+    tts_interrupt_enabled: bool = True
+
+    barge_in_enabled: bool = True
+    barge_in_min_speech_ms: int = 96
+    barge_in_cancel_current_playback: bool = True
+    barge_in_flush_playback_queue: bool = True
+    barge_in_drop_stale_audio: bool = True
+    barge_in_grace_ms: int = 0
+    barge_in_log_events: bool = True
 
     tts_voice: str = "af_heart"
     tts_speed: float = 1.0
     tts_language: str = "en-us"
 
     tts_log_text: bool = False
-    
+
     tts_dummy_frames: int = 10
     stt_dummy_text: str = "Yes"
 

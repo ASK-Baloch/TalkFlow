@@ -19,11 +19,7 @@ class Settings:
 
 def test_dynamic_stt_loading():
     provider = create_provider(
-        (
-            "app.realtime.providers."
-            "stt_dummy:"
-            "DummySTTProvider"
-        ),
+        ("app.realtime.providers.stt_dummy:DummySTTProvider"),
         settings=Settings(),
     )
 
@@ -35,11 +31,7 @@ def test_dynamic_stt_loading():
 
 def test_dynamic_tts_loading():
     provider = create_provider(
-        (
-            "app.realtime.providers."
-            "tts_dummy:"
-            "DummyTTSProvider"
-        ),
+        ("app.realtime.providers.tts_dummy:DummyTTSProvider"),
         settings=Settings(),
     )
 

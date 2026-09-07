@@ -2,131 +2,104 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
-from time import perf_counter_ns
-
-from app.core.config import (
-    get_settings,
-)
-from app.realtime.qualification.types import (
-    ConversationAction,
+from time import (
+    perf_counter,
+    perf_counter_ns,
 )
 
-from .catalog import (
-    response_for_action,
+from app.realtime.providers.tts import (
+    TTSProvider,
+    TTSRequest,
 )
-from .metrics import tts_metrics
+
+from .interruption import (
+    PlaybackGeneration,
+)
+from .metrics import (
+    tts_metrics,
+)
+from .planner import (
+    PlannedResponse,
+    TTSRoute,
+)
 from .playback import (
     AudioSocketPcmPlayer,
+    PlaybackInterrupted,
+)
+from .session import (
+    TtsCallSession,
 )
 from .types import (
     PlaybackRequest,
+    ResponseId,
 )
 
-logger = logging.getLogger(
-    "talkflow.tts"
-)
-
-
-@dataclass
-class PlaybackConnection:
-    connection_id: str
-
-    writer: asyncio.StreamWriter
-
-    queue: asyncio.Queue[
-        PlaybackRequest
-    ]
-
-    worker_task: asyncio.Task | None = (
-        None
-    )
+logger = logging.getLogger("talkflow.tts")
 
 
 class TTSService:
     def __init__(
         self,
-        pregenerated_provider=None,
-        dynamic_provider=None,
+        *,
+        enabled: bool = True,
+        pregenerated_provider: TTSProvider,
+        dynamic_provider: TTSProvider,
+        sample_rate: int,
+        sample_width_bytes: int,
+        frame_ms: int,
+        queue_size: int,
+        interrupt_enabled: bool,
+        flush_queue_on_interrupt: bool,
+        drop_stale_audio: bool,
+        barge_in_log_events: bool,
     ) -> None:
-        settings = get_settings()
-
-        self.settings = settings
-
-        self.enabled = (
-            settings.tts_enabled
-        )
-
-        self._connections: dict[
-            str,
-            PlaybackConnection,
-        ] = {}
-
         self.pregenerated_provider = pregenerated_provider
+
         self.dynamic_provider = dynamic_provider
 
-        self.player = (
-            AudioSocketPcmPlayer(
-                sample_rate=(
-                    settings.tts_sample_rate
-                ),
-                sample_width_bytes=(
-                    settings
-                    .tts_sample_width_bytes
-                ),
-                frame_ms=(
-                    settings.tts_frame_ms
-                ),
-            )
+        self.queue_size = queue_size
+
+        self.interrupt_enabled = interrupt_enabled
+
+        self.flush_queue_on_interrupt = flush_queue_on_interrupt
+
+        self.drop_stale_audio = drop_stale_audio
+
+        self.barge_in_log_events = barge_in_log_events
+
+        self.enabled = enabled
+
+        self.player = AudioSocketPcmPlayer(
+            sample_rate=sample_rate,
+            sample_width_bytes=(sample_width_bytes),
+            frame_ms=frame_ms,
         )
+
+        self._sessions: dict[
+            str,
+            TtsCallSession,
+        ] = {}
+
+    @property
+    def connected_calls(self) -> int:
+        return len(self._sessions)
 
     async def start(
         self,
     ) -> None:
-        if not self.enabled:
-            logger.info(
-                "Pre-generated TTS disabled"
-            )
+        await self.pregenerated_provider.start()
 
-            return
-
-        if hasattr(self.pregenerated_provider, "start"):
-            await self.pregenerated_provider.start()
-
-        if hasattr(self.dynamic_provider, "start"):
-            await self.dynamic_provider.start()
-
-        logger.info(
-            (
-                "Pre-generated TTS ready "
-                "version=%s "
-                "sample_rate=%s"
-            ),
-            self.settings
-            .tts_asset_version,
-            self.settings
-            .tts_sample_rate,
-        )
+        await self.dynamic_provider.start()
 
     async def stop(
         self,
     ) -> None:
-        connection_ids = list(
-            self._connections
-        )
+        for connection_id in list(self._sessions):
+            await self.detach_connection(connection_id)
 
-        for connection_id in (
-            connection_ids
-        ):
-            await self.detach_connection(
-                connection_id
-            )
+        await self.dynamic_provider.stop()
 
-        if hasattr(self.pregenerated_provider, "stop"):
-            await self.pregenerated_provider.stop()
-
-        if hasattr(self.dynamic_provider, "stop"):
-            await self.dynamic_provider.stop()
+        await self.pregenerated_provider.stop()
 
     async def attach_connection(
         self,
@@ -134,53 +107,26 @@ class TTSService:
         connection_id: str,
         writer: asyncio.StreamWriter,
     ) -> None:
-        if not self.enabled:
+        if connection_id in self._sessions:
             return
 
-        if (
-            connection_id
-            in self._connections
-        ):
-            return
+        queue: asyncio.Queue[PlaybackRequest] = asyncio.Queue(maxsize=self.queue_size)
 
-        queue: asyncio.Queue[
-            PlaybackRequest
-        ] = asyncio.Queue(
-            maxsize=(
-                self.settings
-                .tts_playback_queue_size
-            )
+        session = TtsCallSession(
+            connection_id=(connection_id),
+            writer=writer,
+            queue=queue,
+            generation=(PlaybackGeneration(connection_id=(connection_id))),
         )
 
-        connection = (
-            PlaybackConnection(
-                connection_id=(
-                    connection_id
-                ),
-                writer=writer,
-                queue=queue,
-            )
-        )
+        session.worker_task = asyncio.create_task(self._playback_worker(session))
 
-        self._connections[
-            connection_id
-        ] = connection
-
-        connection.worker_task = (
-            asyncio.create_task(
-                self._playback_worker(
-                    connection
-                )
-            )
-        )
+        self._sessions[connection_id] = session
 
         tts_metrics.playback_sessions_total += 1
 
         logger.info(
-            (
-                "TTS connection attached "
-                "connection_id=%s"
-            ),
+            "TTS session attached connection_id=%s",
             connection_id,
         )
 
@@ -188,293 +134,327 @@ class TTSService:
         self,
         connection_id: str,
     ) -> None:
-        connection = (
-            self._connections.pop(
-                connection_id,
-                None,
-            )
+        session = self._sessions.pop(
+            connection_id,
+            None,
         )
 
-        if connection is None:
+        if session is None:
             return
 
-        if (
-            connection.worker_task
-            is not None
-        ):
-            connection.worker_task.cancel()
+        await self._cancel_current_playback(session)
+
+        if session.worker_task:
+            session.worker_task.cancel()
 
             await asyncio.gather(
-                connection.worker_task,
+                session.worker_task,
                 return_exceptions=True,
             )
 
+        self._flush_queue(session)
+
         logger.info(
-            (
-                "TTS connection detached "
-                "connection_id=%s"
-            ),
+            "TTS session detached connection_id=%s",
             connection_id,
         )
 
-    async def handle_action(
+    async def enqueue(
         self,
         *,
         connection_id: str,
-        session_uuid: str | None,
-        action: ConversationAction,
+        planned: PlannedResponse,
+        session_uuid: str | None = None,
     ) -> bool:
-        if not self.enabled:
-            return False
+        session = self._sessions.get(connection_id)
 
-        definition = (
-            response_for_action(
-                action.action_type
-            )
-        )
-
-        if definition is None:
-            return False
-
-        connection = (
-            self._connections.get(
-                connection_id
-            )
-        )
-
-        if connection is None:
+        if session is None:
             logger.warning(
-                (
-                    "No TTS playback connection "
-                    "connection_id=%s"
-                ),
+                "TTS session missing connection_id=%s",
                 connection_id,
             )
 
             return False
 
-        request = PlaybackRequest(
-            connection_id=(
-                connection_id
-            ),
-            session_uuid=(
-                session_uuid
-            ),
-            response_id=(
-                definition.response_id
-            ),
-        )
+        generation = await session.generation.current()
 
-        if connection.queue.full():
+        if planned.route == TTSRoute.PREGENERATED:
+            if not planned.response_id:
+                raise ValueError("Pregenerated response requires response_id")
+
+            request = PlaybackRequest(
+                connection_id=(connection_id),
+                generation=generation,
+                response_id=(ResponseId(planned.response_id)),
+                session_uuid=(session_uuid),
+            )
+
+        else:
+            if not planned.text:
+                raise ValueError("Dynamic response requires text")
+
+            request = PlaybackRequest(
+                connection_id=(connection_id),
+                generation=generation,
+                text=planned.text,
+                session_uuid=(session_uuid),
+            )
+
+        if session.queue.full():
             tts_metrics.queue_overflows += 1
 
             logger.error(
-                (
-                    "TTS playback queue full "
-                    "connection_id=%s"
-                ),
+                "TTS queue full connection_id=%s",
                 connection_id,
             )
 
             return False
 
-        connection.queue.put_nowait(
-            request
-        )
+        session.queue.put_nowait(request)
 
         tts_metrics.requests_total += 1
 
         return True
 
-    async def play_initial_prompt(
+    async def interrupt(
         self,
         *,
         connection_id: str,
-        session_uuid: str | None,
-        action: ConversationAction,
+        reason: str = "caller_speech",
     ) -> bool:
-        return await self.handle_action(
-            connection_id=(
-                connection_id
-            ),
-            session_uuid=(
-                session_uuid
-            ),
-            action=action,
-        )
+        if not self.interrupt_enabled:
+            return False
 
-    async def play_text(
+        session = self._sessions.get(connection_id)
+
+        if session is None:
+            return False
+
+        interrupt_started = perf_counter()
+
+        new_generation = await session.generation.advance()
+
+        tts_metrics.interruptions_total += 1
+
+        if self.barge_in_log_events:
+            logger.info(
+                "TTS interruption connection_id=%s reason=%s generation=%s",
+                connection_id,
+                reason,
+                new_generation,
+            )
+
+        cancelled = await self._cancel_current_playback(session)
+
+        if self.flush_queue_on_interrupt:
+            flushed = self._flush_queue(session)
+
+            tts_metrics.flushed_requests_total += flushed
+
+        elapsed_ms = (perf_counter() - interrupt_started) * 1000.0
+
+        tts_metrics.barge_in_cancel_ms.append(elapsed_ms)
+
+        return cancelled
+
+    async def is_playing(
         self,
-        *,
         connection_id: str,
-        session_uuid: str | None,
-        text: str,
     ) -> bool:
-        if not self.enabled:
+        session = self._sessions.get(connection_id)
+
+        if session is None:
             return False
 
-        connection = (
-            self._connections.get(
-                connection_id
-            )
-        )
+        task = session.current_playback_task
 
-        if connection is None:
-            logger.warning(
-                (
-                    "No TTS playback connection "
-                    "connection_id=%s"
-                ),
-                connection_id,
-            )
+        return task is not None and not task.done()
 
-            return False
-
-        request = PlaybackRequest(
-            connection_id=(
-                connection_id
-            ),
-            session_uuid=(
-                session_uuid
-            ),
-            text=text,
-        )
-
-        if connection.queue.full():
-            tts_metrics.queue_overflows += 1
-
-            logger.error(
-                (
-                    "TTS playback queue full "
-                    "connection_id=%s"
-                ),
-                connection_id,
-            )
-
-            return False
-
-        connection.queue.put_nowait(
-            request
-        )
-
-        tts_metrics.requests_total += 1
-
-        return True
-
-    async def _playback_worker(
+    async def playback_age_ms(
         self,
-        connection: PlaybackConnection,
-    ) -> None:
-        while True:
-            request = (
-                await connection
-                .queue.get()
+        connection_id: str,
+    ) -> float | None:
+        session = self._sessions.get(connection_id)
+
+        if session is None or session.playback_started_at is None:
+            return None
+
+        return (perf_counter() - session.playback_started_at) * 1000.0
+
+    async def _cancel_current_playback(
+        self,
+        session: TtsCallSession,
+    ) -> bool:
+        task = session.current_playback_task
+
+        if task is None or task.done():
+            return False
+
+        request = session.current_request
+
+        if request is not None:
+            provider = (
+                self.pregenerated_provider
+                if request.response_id
+                else self.dynamic_provider
             )
 
             try:
-                started_ns = (
-                    perf_counter_ns()
+                await provider.cancel(request.request_id)
+
+            except Exception:
+                logger.exception(
+                    "Provider cancellation failed connection_id=%s request_id=%s",
+                    session.connection_id,
+                    request.request_id,
                 )
 
-                from app.realtime.providers.tts import TTSRequest
+        task.cancel()
 
-                is_pregenerated = request.response_id is not None
-                provider = self.pregenerated_provider if is_pregenerated else self.dynamic_provider
+        await asyncio.gather(
+            task,
+            return_exceptions=True,
+        )
 
-                tts_request = TTSRequest(
-                    text=request.text,
-                    response_id=request.response_id.value if request.response_id else None,
-                )
+        session.current_playback_task = None
 
-                first_chunk = True
-                total_duration_ms = 0.0
+        tts_metrics.interrupted_playbacks_total += 1
 
-                self.player.reset()
+        return True
 
-                async for chunk in provider.stream(tts_request):
-                    if first_chunk:
-                        first_chunk = False
-                        cache_ready_ns = perf_counter_ns()
-                        first_audio_ms = (cache_ready_ns - request.created_ns) / 1_000_000.0
-                        tts_metrics.first_audio_ms.append(first_audio_ms)
-                        tts_metrics.active_playbacks += 1
+    def _flush_queue(
+        self,
+        session: TtsCallSession,
+    ) -> int:
+        count = 0
 
-                        logger.info(
-                            (
-                                "TTS playback start "
-                                "connection_id=%s "
-                                "type=%s "
-                                "ready_ms=%.2f"
-                            ),
-                            connection.connection_id,
-                            "pregenerated" if is_pregenerated else "dynamic",
-                            first_audio_ms,
-                        )
+        while True:
+            try:
+                session.queue.get_nowait()
 
-                    chunk_duration_ms = (len(chunk.pcm) / (chunk.sample_width_bytes * chunk.channels * chunk.sample_rate)) * 1000
-                    total_duration_ms += chunk_duration_ms
+            except asyncio.QueueEmpty:
+                break
 
-                    await self.player.play_chunk(
-                        writer=connection.writer,
-                        pcm=chunk.pcm,
+            else:
+                session.queue.task_done()
+                count += 1
+
+        return count
+
+    async def _playback_worker(
+        self,
+        session: TtsCallSession,
+    ) -> None:
+        while True:
+            request = await session.queue.get()
+
+            try:
+                current_generation = await session.generation.current()
+
+                if self.drop_stale_audio and request.generation != current_generation:
+                    tts_metrics.stale_requests_dropped_total += 1
+
+                    continue
+
+                session.current_request = request
+
+                task = asyncio.create_task(
+                    self._play_request(
+                        session=session,
+                        request=request,
                     )
-
-                tts_metrics.completed_total += 1
-
-                total_ms = (
-                    perf_counter_ns()
-                    - started_ns
-                ) / 1_000_000.0
-
-                logger.info(
-                    (
-                        "TTS playback complete "
-                        "connection_id=%s "
-                        "type=%s "
-                        "audio_duration_ms=%.1f "
-                        "total_ms=%.1f"
-                    ),
-                    connection.connection_id,
-                    "pregenerated" if is_pregenerated else "dynamic",
-                    total_duration_ms,
-                    total_ms,
                 )
+
+                session.current_playback_task = task
+
+                await task
 
             except asyncio.CancelledError:
-                raise
+                pass
 
-            except FileNotFoundError:
-                tts_metrics.assets_missing += 1
-
-                logger.exception(
-                    "TTS asset missing"
-                )
+            except PlaybackInterrupted:
+                pass
 
             except Exception:
                 tts_metrics.playback_errors += 1
 
                 logger.exception(
-                    (
-                        "TTS playback failure "
-                        "connection_id=%s"
-                    ),
-                    connection.connection_id,
+                    "TTS playback failed connection_id=%s",
+                    session.connection_id,
                 )
 
             finally:
-                tts_metrics.active_playbacks = max(
-                    0,
-                    tts_metrics.active_playbacks
-                    - 1,
-                )
+                session.current_playback_task = None
 
-                connection.queue.task_done()
+                session.current_request = None
 
+                session.queue.task_done()
 
-    @property
-    def connected_calls(
+    async def _play_request(
         self,
-    ) -> int:
-        return len(self._connections)
+        *,
+        session: TtsCallSession,
+        request: PlaybackRequest,
+    ) -> None:
+        if request.response_id:
+            provider = self.pregenerated_provider
 
-
+            provider_request = TTSRequest(
+                response_id=(request.response_id.value),
+                request_id=(request.request_id),
+            )
+
+        else:
+            provider = self.dynamic_provider
+
+            provider_request = TTSRequest(
+                text=request.text,
+                request_id=(request.request_id),
+            )
+
+        async def should_continue():
+            if not self.drop_stale_audio:
+                return True
+
+            return await session.generation.is_current(request.generation)
+
+        first_audio_sent = False
+
+        async def on_first_frame():
+            nonlocal first_audio_sent
+
+            if first_audio_sent:
+                return
+
+            first_audio_sent = True
+
+            elapsed_ms = (perf_counter_ns() - request.created_ns) / 1_000_000.0
+
+            tts_metrics.first_audio_ms.append(elapsed_ms)
+
+        chunks = provider.stream(provider_request)
+
+        tts_metrics.active_playbacks += 1
+
+        session.playback_started_at = perf_counter()
+
+        try:
+            await self.player.play_chunks(
+                writer=session.writer,
+                chunks=chunks,
+                should_continue=(should_continue),
+                on_first_frame=(on_first_frame),
+            )
+
+            if not await should_continue():
+                raise PlaybackInterrupted
+
+            tts_metrics.completed_total += 1
+
+        finally:
+            tts_metrics.active_playbacks = max(
+                0,
+                tts_metrics.active_playbacks - 1,
+            )
+
+            session.playback_started_at = None

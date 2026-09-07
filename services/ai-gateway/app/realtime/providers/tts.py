@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import (
+    ABC,
+    abstractmethod,
+)
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import (
@@ -33,18 +36,11 @@ class TTSAudioChunk:
 
 
 class TTSProvider(ABC):
-    """
-    Stable TalkFlow TTS interface.
-
-    Provider implementations MUST emit telephony-ready
-    signed PCM16 little-endian audio.
-    """
-
     provider_name: str = "unknown"
 
-    supports_native_streaming: bool = (
-        False
-    )
+    supports_native_streaming: bool = False
+
+    supports_cancellation: bool = False
 
     @classmethod
     @abstractmethod
@@ -68,31 +64,23 @@ class TTSProvider(ABC):
         self,
     ) -> dict[str, Any]:
         return {
-            "provider": (
-                self.provider_name
-            ),
+            "provider": self.provider_name,
             "ready": True,
-            "supports_native_streaming": (
-                self
-                .supports_native_streaming
-            ),
+            "supports_native_streaming": (self.supports_native_streaming),
+            "supports_cancellation": (self.supports_cancellation),
         }
+
+    async def cancel(
+        self,
+        request_id: str,
+    ) -> bool:
+        del request_id
+
+        return False
 
     @abstractmethod
     async def stream(
         self,
         request: TTSRequest,
-    ) -> AsyncIterator[
-        TTSAudioChunk
-    ]:
-        """
-        Produce telephony-ready PCM.
-
-        The caller does not know whether audio comes from:
-        - Redis
-        - Chatterbox
-        - an API
-        - another local model
-        - a mock provider
-        """
+    ) -> AsyncIterator[TTSAudioChunk]:
         raise NotImplementedError

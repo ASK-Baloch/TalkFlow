@@ -27,9 +27,9 @@ def asr_service():
     srv = AsrService()
     srv.scheduler = MockScheduler()
     srv.enabled = True
-    
+
     registry.tts_service = mock.AsyncMock()
-    
+
     return srv
 
 
