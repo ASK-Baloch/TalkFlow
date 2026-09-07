@@ -11,23 +11,19 @@ The architecture is built heavily around real-time streaming, strict ML isolatio
 ```text
 Asterisk / AudioSocket
         ↓
-Silero VAD
+VAD ──────────── SPEECH_START
+        ↓               │
+Streaming ASR           │
+        ↓               ↓
+Qualification     BargeInController
+        ↓               ↓
+Planner            TTSService.interrupt()
+        ↓               ↓
+TTSProvider      cancel playback
+        ↓               ↓
+20 ms PCM frames ← generation invalidation
         ↓
-Streaming ASR
-        ↓
-FINAL transcript
-        ↓
-Deterministic Qualification Engine
-        ↓
-ConversationAction
-        ↓
-Response Catalog
-        ↓
-Pre-generated PCM cache
-        ↓
-AudioSocket
-        ↓
-Caller
+Asterisk
 ```
 The core orchestration service managing the conversational loop.
 - **Service Registry & Dependency Injection**: Provides a stable provider abstraction (`STTProvider`, `TTSProvider`) so the Gateway is decoupled from specific ML model SDKs.
