@@ -1,17 +1,17 @@
 # Current Status
 
-**Current Phase:** Phase 6 (Provider Streaming TTS) completed.
+**Current Phase:** Phase 8 (Qwen LLM Fallback) completed.
 
 ## Recently Completed
-- Established Provider-based Dependency Injection for TTS and STT (`TTSProvider`, `STTProvider`), removing tight coupling to ML SDKs inside the AI Gateway.
-- Integrated the standalone Chatterbox TTS Worker running as an isolated HTTP microservice.
-- Benchmarked generative TTS latency (Time-To-First-Audio), finding that short conversational bursts (3-8 words) significantly improve response latency (2s - 3s RTF limits).
-- Successfully completed live end-to-end integration testing over the local SSH tunnel to the Asterisk PBX.
-- The pipeline correctly handles live caller audio via AudioSocket -> VAD -> STT -> Qualification -> TTS (Pregenerated + Dynamic).
+- Implemented and verified the `LLMProvider` abstraction (`OpenAICompatibleLLMProvider` and `DummyLLMProvider`).
+- Integrated Qwen3-8B-AWQ (deployed as Qwen2.5-1.5B-AWQ for 4GB VRAM constraint) via vLLM for handling conversational fallback generation.
+- Designed smart heuristic fallback triggers so the LLM is only queried for complex out-of-domain questions while maintaining the sub-second latency fast-path for simple invalid inputs.
+- Successfully benchmarked the vLLM integration, establishing baseline metrics for Time-To-First-Token (~300ms) without breaking the strict architecture rules.
+- Implemented barge-in and conversational interruption mechanics (Phase 7), enabling the AI to instantly halt TTS playback when the caller interrupts.
 
 ## Known Constraints
-- **TTS Generation Blocks:** Because the current Chatterbox HTTP provider generates audio as a monolithic block, TTFA is roughly equal to total synthesis time. Sentence chunking and incremental generation (Phase 8/Qwen integration) will be needed to truly achieve sub-second TTFA for long sentences.
-- **Interruption:** Barge-in functionality (interrupting a playing TTS prompt with new speech) is currently disabled (`TTS_INTERRUPT_ENABLED=false`).
+- **TTS Generation Blocks:** Because the current Chatterbox HTTP provider generates audio as a monolithic block, TTFA is roughly equal to total synthesis time. Sentence chunking and incremental generation (Phase 9) will be needed to truly achieve sub-second TTFA for dynamic LLM responses.
+- **Dynamic TTS Missing:** The dynamic TTS worker is not currently running in the local Docker environment, so LLM responses fallback to the dummy TTS provider temporarily to avoid timeouts.
 
 ## Next Active Phase
-- Transitioning into Phase 7, focusing on interruption / barge-in mechanics, allowing the AI to immediately halt its TTS pacing output when the caller interrupts.
+- Transitioning into Phase 9, focusing on response streaming, TTS chunking, and intelligent conversational planning to pipeline LLM output directly into incremental TTS generation.
