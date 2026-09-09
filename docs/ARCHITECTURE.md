@@ -30,13 +30,15 @@ The core orchestration service managing the conversational loop.
 - **Voice Activity Detection (VAD)**: Utilizes Silero VAD to detect speech presence, enabling the system to smartly capture user utterances and reject background noise.
 - **Streaming ASR Service**: Consumes audio from the VAD and coordinates decoding. The core implementation relies on Faster-Whisper, supporting both final and partial transcription streams.
 - **Qualification Engine**: The business logic tier responsible for analyzing transcripts, extracting fields (e.g. name, age, zipcode, consent), and deciding the next action in the conversational flow without hardcoded branching.
+- **LLM Fallback**: When the qualification engine detects complex out-of-domain questions or needs conversational clarification beyond standard prompts, it falls back to an LLM provider to generate dynamic responses while maintaining character limits and context.
 - **TTS Pacing & Playback**: Receives text to speak and utilizes TTS providers (pre-generated or dynamic) to fetch PCM audio. A pacing loop carefully chunks the audio into 20ms frames and transmits it back over AudioSocket exactly at the speed of spoken audio, avoiding PBX buffer overflow.
 
 ### 3. ML Workers
 Heavy neural generation runs out-of-process to protect the real-time Gateway.
 - **Chatterbox TTS Worker**: An independent HTTP microservice housing the generative neural TTS engine. The AI Gateway sends text over the local network, and the worker synthesizes and returns full PCM streams, isolating PyTorch/CUDA demands from the core connection loop.
+- **vLLM Inference Server**: An independent worker running Qwen3-8B-AWQ (or Qwen2.5-1.5B-AWQ for lower hardware profiles), providing fast, non-streaming completion for conversational fallback generation without blocking the Gateway.
 
 ## Design Principles
 - **Strict Decoupling**: Business logic never touches model SDKs directly.
-- **Isolate ML**: Heavy inference (generative TTS) runs in separate processes.
+- **Isolate ML**: Heavy inference (generative TTS, LLM Fallback) runs in separate processes.
 - **Paced Output**: Never push audio faster than real-time to avoid overwhelming the PBX.
