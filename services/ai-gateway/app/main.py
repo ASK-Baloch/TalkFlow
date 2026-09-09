@@ -11,6 +11,7 @@ from app.realtime.asr.service import AsrService
 from app.realtime.audiosocket.manager import session_manager
 from app.realtime.audiosocket.metrics import audiosocket_metrics
 from app.realtime.audiosocket.server import audiosocket_server
+from app.realtime.llm.service import LLMService
 from app.realtime.qualification.metrics import qualification_metrics
 from app.realtime.qualification.service import qualification_service
 from app.realtime.tts.metrics import tts_metrics
@@ -42,6 +43,11 @@ async def lifespan(app: FastAPI):
         settings=settings,
     )
 
+    llm_provider = create_provider(
+        settings.llm_provider_class,
+        settings=settings,
+    )
+
     if hasattr(stt_provider, "start"):
         await stt_provider.start()
 
@@ -65,6 +71,18 @@ async def lifespan(app: FastAPI):
         drop_stale_audio=True,
         barge_in_log_events=True,
     )
+    registry.llm_service = LLMService(
+        provider=llm_provider,
+        enabled=settings.llm_enabled,
+        max_tokens=(settings.llm_max_tokens),
+        temperature=(settings.llm_temperature),
+        top_p=settings.llm_top_p,
+        top_k=settings.llm_top_k,
+        presence_penalty=(settings.llm_presence_penalty),
+        enable_thinking=(settings.llm_enable_thinking),
+        max_history_turns=(settings.llm_max_history_turns),
+        max_input_chars=(settings.llm_max_input_chars),
+    )
 
     from app.realtime.tts.barge_in import BargeInConfig, BargeInController
 
@@ -81,6 +99,7 @@ async def lifespan(app: FastAPI):
     await registry.asr_service.start()
     await qualification_service.start()
     await registry.tts_service.start()
+    await registry.llm_service.start()
     await audiosocket_server.start()
 
     try:
@@ -88,6 +107,8 @@ async def lifespan(app: FastAPI):
 
     finally:
         await audiosocket_server.stop()
+
+        await registry.llm_service.stop()
 
         await registry.tts_service.stop()
 
@@ -415,3 +436,60 @@ async def tts_test_playback(request: TTSTestRequest):
         raise HTTPException(status_code=400, detail="Failed to enqueue test playback")
 
     return {"success": True}
+
+
+@app.get("/internal/llm/status")
+async def llm_status():
+    settings = get_settings()
+    from app.realtime.llm.metrics import llm_metrics
+
+    return {
+        "enabled": settings.llm_enabled,
+        "model": settings.llm_model,
+        "thinking": settings.llm_enable_thinking,
+        "provider": await registry.llm_service.health(),
+        "metrics": {
+            "requests_total": llm_metrics.requests_total,
+            "completed_total": llm_metrics.completed_total,
+            "failures_total": llm_metrics.failures_total,
+            "timeouts_total": llm_metrics.timeouts_total,
+            "average_latency_ms": round(llm_metrics.average_latency_ms(), 2),
+            "p95_latency_ms": round(llm_metrics.p95_latency_ms(), 2),
+        },
+    }
+
+
+class LLMTestRequest(BaseModel):
+    text: str
+
+
+@app.post("/internal/llm/test")
+async def llm_test(request: LLMTestRequest):
+    settings = get_settings()
+    if not getattr(settings, "llm_debug_endpoints", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Diagnostics endpoint disabled. Set LLM_DEBUG_ENDPOINTS=true.",
+        )
+
+    from app.realtime.llm.types import LLMFallbackContext
+
+    context = LLMFallbackContext(
+        connection_id="test",
+        caller_text=request.text,
+        current_state="qualification",
+        expected_field="zip_code",
+    )
+
+    result = await registry.llm_service.generate_fallback(context)
+
+    if not result:
+        raise HTTPException(status_code=500, detail="LLM generation failed")
+
+    return {
+        "text": result.text,
+        "model": result.model,
+        "latency_ms": result.latency_ms,
+        "prompt_tokens": result.prompt_tokens,
+        "completion_tokens": result.completion_tokens,
+    }
