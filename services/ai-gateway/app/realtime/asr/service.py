@@ -557,13 +557,100 @@ class AsrService:
             )
 
             if qualification_result is not None:
+                from app.realtime.qualification.types import ActionType
                 from app.realtime.tts.planner import response_planner
 
-                planned = response_planner.plan_action(qualification_result.action)
+                action = qualification_result.action
 
-                if planned:
-                    await registry.tts_service.enqueue(
-                        connection_id=event.connection_id,
-                        planned=planned,
-                        session_uuid=event.session_uuid,
+                is_clarification = action.action_type.value.startswith("clarify_")
+
+                # Heuristic: only send to LLM if it's a clarification AND the text looks complex
+                # enough (e.g., a question or a longer statement) rather than a simple invalid answer.
+                text_lower = event.text.lower()
+                is_complex_query = (
+                    any(
+                        q in text_lower
+                        for q in [
+                            "what",
+                            "why",
+                            "how",
+                            "who",
+                            "can you",
+                            "explain",
+                            "hold on",
+                            "minute",
+                            "mean",
+                            "real person",
+                            "don't understand",
+                        ]
                     )
+                    or len(text_lower.split()) > 3
+                )
+
+                # If it's a simple clarification, handle it immediately without LLM delay
+                if action.action_type != ActionType.NO_ACTION and not (
+                    is_clarification and is_complex_query
+                ):
+                    planned = response_planner.plan_action(action)
+
+                    if planned:
+                        await registry.tts_service.enqueue(
+                            connection_id=event.connection_id,
+                            planned=planned,
+                            session_uuid=event.session_uuid,
+                        )
+                else:
+                    from app.realtime.llm.types import LLMFallbackContext
+                    from app.realtime.qualification.types import FieldName
+
+                    fallback_context = LLMFallbackContext(
+                        connection_id=event.connection_id,
+                        caller_text=event.text,
+                        current_state=qualification_result.state.value,
+                        expected_field=(
+                            qualification_result.action.expected_field.value
+                            if qualification_result.action.expected_field
+                            else None
+                        ),
+                    )
+
+                    fallback_result = await registry.llm_service.generate_fallback(
+                        context=fallback_context
+                    )
+
+                    planned = None
+                    if fallback_result is not None and fallback_result.text:
+                        planned = response_planner.plan_dynamic(fallback_result.text)
+                    else:
+                        clarify_action_map = {
+                            FieldName.CONSENT: ActionType.CLARIFY_CONSENT,
+                            FieldName.FULL_NAME: ActionType.CLARIFY_NAME,
+                            FieldName.AGE: ActionType.CLARIFY_AGE,
+                            FieldName.MEDICARE_PART_A: ActionType.CLARIFY_PART_A,
+                            FieldName.MEDICARE_PART_B: ActionType.CLARIFY_PART_B,
+                            FieldName.ZIP_CODE: ActionType.CLARIFY_ZIP,
+                        }
+
+                        fallback_action_type = clarify_action_map.get(
+                            qualification_result.action.expected_field,
+                            ActionType.NO_ACTION,
+                        )
+
+                        if fallback_action_type != ActionType.NO_ACTION:
+                            from app.realtime.qualification.types import (
+                                ConversationAction,
+                            )
+
+                            fallback_action = ConversationAction(
+                                action_type=fallback_action_type,
+                                state=qualification_result.state,
+                                qualification_status=qualification_result.status,
+                            )
+                            planned = response_planner.plan_action(fallback_action)
+
+                    if planned:
+                        await registry.tts_service.enqueue(
+                            connection_id=event.connection_id,
+                            planned=planned,
+                            session_uuid=event.session_uuid,
+                        )

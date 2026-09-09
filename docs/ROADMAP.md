@@ -7,19 +7,17 @@
 - **Phase 4:** Qualification Engine (Extracting fields, deterministic state machine).
 - **Phase 5:** Pre-generated TTS Integration (Playback caching and pacing).
 - **Phase 6:** Provider Streaming TTS (Model isolation, dynamic Chatterbox generation).
+- **Phase 7:** Interruption and Barge-In (Halt TTS playback on user interruption, clear queues).
+- **Phase 8:** Qwen LLM Fallback (vLLM integration for handling out-of-domain complex questions via OpenAI-compatible provider).
 
 ## Upcoming Phases
 
-### Phase 7: Interruption and Barge-In
-- Implementing caller barge-in handling to gracefully halt AudioSocket TTS playback when VAD detects the user interrupting.
-- Clearing out-of-date TTS queues and handling state resets without dropping the AudioSocket connection.
-
-### Phase 8: Conversational LLM (Qwen Integration)
-- Introducing the Qwen LLM for dynamic dialogue generation, replacing deterministic rule-based qualification scripts with natural, context-aware back-and-forth.
+### Phase 9: Response Streaming & Planning
 - Chunked generation passing partial sentences into the TTS engine to drop TTFA significantly.
+- Intelligent conversational planning to pipeline LLM output directly into incremental TTS generation.
 
-### Phase 9: Telephony Edge Resiliency
+### Phase 10: Telephony Edge Resiliency
 - Enhancing jitter buffers and connection resilience to gracefully handle degraded AudioSocket PBX links.
 
-### Phase 10: Multi-tenant Scaling
+### Phase 11: Multi-tenant Scaling
 - Expanding the backend to handle large concurrency across multiple concurrent remote AudioSockets, sharding model workers and caching components.

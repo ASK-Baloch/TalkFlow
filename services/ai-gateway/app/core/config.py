@@ -136,6 +136,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    llm_enabled: bool = True
+    llm_provider_class: str = (
+        "app.realtime.providers.llm_openai_compat:OpenAICompatibleLLMProvider"
+    )
+    llm_base_url: str = "http://vllm:8100/v1"
+    llm_api_key: str = "EMPTY"
+    llm_model: str = "Qwen/Qwen2.5-1.5B-Instruct-AWQ"
+    llm_enable_thinking: bool = False
+    llm_max_tokens: int = 80
+    llm_temperature: float = 0.7
+    llm_top_p: float = 0.8
+    llm_top_k: int = 20
+    llm_presence_penalty: float = 0.3
+    llm_timeout_seconds: float = 5.0
+    llm_max_history_turns: int = 4
+    llm_max_input_chars: int = 2000
+    llm_fallback_only: bool = True
+    llm_dummy_response: str = (
+        "I can help with that. Let's continue with the qualification questions."
+    )
+    llm_debug_endpoints: bool = True
+
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
         if self.qualification_min_age < 0:

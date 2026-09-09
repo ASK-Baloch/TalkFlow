@@ -33,3 +33,18 @@ Tested in an isolated local worker over an HTTP network hop from the AI Gateway.
 ### Key Takeaways
 1. **Target conversational brevity:** Outputting short bursts (3-8 words) restricts the static blocking generation latency to ~6 seconds. Full paragraphs (25+ words) will push TTFA above 20 seconds.
 2. **Resource demands:** The TTS neural generation runs hot, fully saturating the CPU up to 100%, emphasizing the necessity of isolating the TTS worker in a standalone process.
+
+## Phase 8: Qwen2.5-1.5B-AWQ (Fallback LLM)
+
+Tested via `benchmark_llm.py` over an HTTP network hop to a local vLLM container running Qwen2.5-1.5B-Instruct-AWQ (4GB VRAM constraint).
+
+| Metric | Result |
+| :--- | :--- |
+| P50 Latency (TTFT + Gen) | ~300 ms |
+| P95 Latency (TTFT + Gen) | ~494 ms |
+| Average Prompt Tokens | ~363 |
+| Average Completion Tokens | 15 - 32 |
+
+### Key Takeaways
+1. **Low Latency Reasoning:** By restricting the LLM to short fallback responses (non-thinking mode), the total generation latency is extremely fast (P50 < 350ms).
+2. **GPU Efficiency:** The AWQ quantized 1.5B model comfortably runs within 4GB VRAM (`--gpu-memory-utilization 0.75`), avoiding OOM crashes while maintaining strong conversational capability.
