@@ -29,6 +29,7 @@ def asr_service():
     srv.enabled = True
 
     registry.tts_service = mock.AsyncMock()
+    registry.llm_service = mock.AsyncMock()
 
     return srv
 
