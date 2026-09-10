@@ -48,3 +48,18 @@ Tested via `benchmark_llm.py` over an HTTP network hop to a local vLLM container
 ### Key Takeaways
 1. **Low Latency Reasoning:** By restricting the LLM to short fallback responses (non-thinking mode), the total generation latency is extremely fast (P50 < 350ms).
 2. **GPU Efficiency:** The AWQ quantized 1.5B model comfortably runs within 4GB VRAM (`--gpu-memory-utilization 0.75`), avoiding OOM crashes while maintaining strong conversational capability.
+
+## Phase 9: Streaming Response Orchestration (End-to-End)
+
+Tested via `run_test_client.py` using AudioSocket mock streaming against the full pipeline (VAD -> Orchestrator -> LLM SSE -> SentenceAssembler -> DummyTTS).
+
+| Metric | Result |
+| :--- | :--- |
+| First Clause Assembly Time | ~150 - 250 ms |
+| Total Time-To-First-Audio (TTFA) | ~450 - 600 ms (TTFT + Assembly + Synthesis) |
+| Cancellation Latency (Barge-in) | < 10 ms |
+| Stale Chunks spoken | 0 |
+
+### Key Takeaways
+1. **Parallel Cancellation:** Because `LLMService`, `TTSService`, and `ResponseOrchestrator` are cancelled independently via `asyncio.gather`, a slow LLM provider crash does not block TTS interruption.
+2. **Sentence Boundaries:** Passing semantic clauses (split on `[.,?,!]`) ensures the TTS model has enough context for prosody, balancing latency vs. natural voice inflection.

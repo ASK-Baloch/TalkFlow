@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,15 +20,26 @@ class LLMRequest:
 
     max_tokens: int = 80
 
-    temperature: float = 0.7
+    temperature: float = 0.3
 
     top_p: float = 0.8
 
-    top_k: int = 20
+    top_k: int | None = None
 
     presence_penalty: float = 0.3
 
     enable_thinking: bool = False
+
+
+@dataclass(slots=True)
+class LLMStreamChunk:
+    text: str
+
+    request_id: str | None = None
+
+    is_final: bool = False
+
+    finish_reason: str | None = None
 
 
 @dataclass(slots=True)
@@ -51,6 +63,10 @@ class LLMResult:
 
 class LLMProvider(ABC):
     provider_name: str = "unknown"
+
+    supports_streaming: bool = False
+
+    supports_cancellation: bool = False
 
     @classmethod
     @abstractmethod
@@ -84,3 +100,23 @@ class LLMProvider(ABC):
         request: LLMRequest,
     ) -> LLMResult:
         raise NotImplementedError
+
+    async def stream(
+        self,
+        request: LLMRequest,
+    ) -> AsyncIterator[LLMStreamChunk]:
+        result = await self.generate(request)
+
+        yield LLMStreamChunk(
+            text=result.text,
+            request_id=request.request_id,
+            is_final=True,
+            finish_reason=(result.finish_reason),
+        )
+
+    async def cancel(
+        self,
+        request_id: str,
+    ) -> bool:
+        del request_id
+        return False

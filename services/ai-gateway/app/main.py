@@ -95,6 +95,30 @@ async def lifespan(app: FastAPI):
         ),
     )
 
+    from app.realtime.response.stream_assembler import (
+        SentenceStreamAssembler,
+        StreamAssemblerConfig,
+    )
+    from app.realtime.response.streaming import StreamingResponseOrchestrator
+    from app.realtime.tts.planner import response_planner
+
+    registry.streaming_response_orchestrator = StreamingResponseOrchestrator(
+        llm_service=registry.llm_service,
+        response_planner=response_planner,
+        tts_service=registry.tts_service,
+        assembler_factory=lambda: SentenceStreamAssembler(
+            config=StreamAssemblerConfig()
+        ),
+    )
+
+    from app.realtime.conversation.turn_controller import ConversationTurnController
+
+    registry.turn_controller = ConversationTurnController(
+        llm_service=registry.llm_service,
+        tts_service=registry.tts_service,
+        response_orchestrator=registry.streaming_response_orchestrator,
+    )
+
     await vad_service.start()
     await registry.asr_service.start()
     await qualification_service.start()

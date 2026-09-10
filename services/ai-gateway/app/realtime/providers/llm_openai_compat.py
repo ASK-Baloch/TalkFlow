@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from time import perf_counter
 from typing import Any
@@ -10,6 +11,7 @@ from .llm import (
     LLMProvider,
     LLMRequest,
     LLMResult,
+    LLMStreamChunk,
 )
 
 
@@ -23,6 +25,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
         api_key: str,
         model: str,
         timeout_seconds: float,
+        supports_thinking: bool = False,
     ) -> None:
         self.base_url = base_url.rstrip("/")
 
@@ -31,6 +34,8 @@ class OpenAICompatibleLLMProvider(LLMProvider):
         self.model = model
 
         self.timeout_seconds = timeout_seconds
+
+        self.supports_thinking = supports_thinking
 
         self.client: httpx.AsyncClient | None = None
 
@@ -44,6 +49,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
             api_key=settings.llm_api_key,
             model=settings.llm_model,
             timeout_seconds=(settings.llm_timeout_seconds),
+            supports_thinking=getattr(settings, "llm_supports_thinking", False),
         )
 
     async def start(
@@ -99,13 +105,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
                 "error": str(exc),
             }
 
-    async def generate(
-        self,
-        request: LLMRequest,
-    ) -> LLMResult:
-        if self.client is None:
-            raise RuntimeError("LLM provider has not been started")
-
+    def _build_payload(self, request: LLMRequest) -> dict[str, Any]:
         payload = {
             "model": self.model,
             "messages": [
@@ -119,11 +119,26 @@ class OpenAICompatibleLLMProvider(LLMProvider):
             "temperature": (request.temperature),
             "top_p": (request.top_p),
             "presence_penalty": (request.presence_penalty),
-            # vLLM-specific extension.
-            "top_k": request.top_k,
-            # Qwen3 hard switch.
-            "chat_template_kwargs": {"enable_thinking": (request.enable_thinking)},
         }
+
+        if request.top_k is not None:
+            payload["top_k"] = request.top_k
+
+        if self.supports_thinking:
+            payload["chat_template_kwargs"] = {
+                "enable_thinking": request.enable_thinking
+            }
+
+        return payload
+
+    async def generate(
+        self,
+        request: LLMRequest,
+    ) -> LLMResult:
+        if self.client is None:
+            raise RuntimeError("LLM provider has not been started")
+
+        payload = self._build_payload(request)
 
         started = perf_counter()
 
@@ -183,3 +198,77 @@ class OpenAICompatibleLLMProvider(LLMProvider):
             latency_ms=latency_ms,
             metadata={"request_id": (request.request_id)},
         )
+
+    async def stream(
+        self,
+        request: LLMRequest,
+    ):
+        if self.client is None:
+            raise RuntimeError("LLM provider has not been started")
+
+        payload = self._build_payload(request)
+
+        payload["stream"] = True
+
+        async with self.client.stream(
+            "POST",
+            (f"{self.base_url}/chat/completions"),
+            json=payload,
+        ) as response:
+            response.raise_for_status()
+
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
+
+                if not line.startswith("data:"):
+                    continue
+
+                data = line[5:].strip()
+
+                if data == "[DONE]":
+                    yield LLMStreamChunk(
+                        text="",
+                        request_id=(request.request_id),
+                        is_final=True,
+                    )
+                    return
+
+                payload = json.loads(data)
+
+                choices = payload.get(
+                    "choices",
+                    [],
+                )
+
+                if not choices:
+                    continue
+
+                choice = choices[0]
+
+                delta = choice.get(
+                    "delta",
+                    {},
+                )
+
+                text = delta.get("content") or ""
+
+                finish_reason = choice.get("finish_reason")
+
+                if text:
+                    yield LLMStreamChunk(
+                        text=text,
+                        request_id=(request.request_id),
+                        is_final=False,
+                        finish_reason=(finish_reason),
+                    )
+
+                if finish_reason:
+                    yield LLMStreamChunk(
+                        text="",
+                        request_id=(request.request_id),
+                        is_final=True,
+                        finish_reason=(finish_reason),
+                    )
+
+                    return

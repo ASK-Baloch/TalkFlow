@@ -30,6 +30,7 @@ def asr_service():
 
     registry.tts_service = mock.AsyncMock()
     registry.llm_service = mock.AsyncMock()
+    registry.streaming_response_orchestrator = mock.AsyncMock()
 
     return srv
 
