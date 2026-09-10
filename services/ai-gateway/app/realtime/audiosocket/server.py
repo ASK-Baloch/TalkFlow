@@ -320,8 +320,8 @@ class AudioSocketServer:
 
             for event in vad_events:
                 if event.event_type == VadEventType.SPEECH_START:
-                    if getattr(registry, "barge_in_controller", None):
-                        await registry.barge_in_controller.on_speech_start(
+                    if getattr(registry, "turn_controller", None):
+                        await registry.turn_controller.interrupt_turn(
                             connection_id=session.connection_id
                         )
 

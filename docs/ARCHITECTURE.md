@@ -15,12 +15,16 @@ VAD ──────────── SPEECH_START
         ↓               │
 Streaming ASR           │
         ↓               ↓
-Qualification     BargeInController
-        ↓               ↓
-Planner            TTSService.interrupt()
-        ↓               ↓
-TTSProvider      cancel playback
-        ↓               ↓
+Qualification   ConversationTurnController
+        ↓               │
+ResponseOrch ← (interrupt response loop)
+        ↓               │
+LLMProvider  ← (cancel generation)
+        ↓               │
+SentenceAssembler       │
+        ↓               │
+TTSProvider  ← (interrupt playback)
+        ↓               
 20 ms PCM frames ← generation invalidation
         ↓
 Asterisk

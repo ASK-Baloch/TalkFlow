@@ -5,6 +5,8 @@ class Registry:
     qualification_service = None
     barge_in_controller = None
     llm_service = None
+    turn_controller = None
+    streaming_response_orchestrator = None
 
 
 registry = Registry()

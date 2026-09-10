@@ -66,6 +66,8 @@ class PlaybackRequest:
 
     created_ns: int = 0
 
+    speech_end_ms: float = 0.0
+
     def __post_init__(
         self,
     ) -> None:

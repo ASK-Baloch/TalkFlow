@@ -21,6 +21,8 @@ class LLMFallbackContext:
 
     history: list[ConversationTurn] = field(default_factory=list)
 
+    speech_end_ms: float = 0.0
+
 
 @dataclass(slots=True)
 class LLMFallbackResult:
