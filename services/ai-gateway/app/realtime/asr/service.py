@@ -591,17 +591,28 @@ class AsrService:
                 if action.action_type != ActionType.NO_ACTION and not (
                     is_clarification and is_complex_query
                 ):
-                    planned = response_planner.plan_action(action)
-
-                    if planned:
+                    # Route simple actions (like NO_ACTION, QUALIFIED, or simple clarifications)
+                    # directly to TTS
+                    planned_response = response_planner.plan_action(
+                        action,
+                    )
+                    if planned_response:
                         await registry.tts_service.enqueue(
                             connection_id=event.connection_id,
-                            planned=planned,
+                            planned=planned_response,
                             session_uuid=event.session_uuid,
+                            speech_end_ms=(
+                                event.acoustic_end_ns / 1_000_000.0
+                                if getattr(event, "acoustic_end_ns", 0)
+                                else 0.0
+                            ),
                         )
                 else:
                     from app.realtime.llm.types import LLMFallbackContext
-                    from app.realtime.qualification.types import FieldName
+
+                    speech_end = getattr(event, "acoustic_end_ns", 0)
+                    if not speech_end:
+                        speech_end = getattr(event, "created_ns", 0)
 
                     fallback_context = LLMFallbackContext(
                         connection_id=event.connection_id,
@@ -612,45 +623,13 @@ class AsrService:
                             if qualification_result.action.expected_field
                             else None
                         ),
+                        speech_end_ms=speech_end / 1_000_000.0,
                     )
 
-                    fallback_result = await registry.llm_service.generate_fallback(
-                        context=fallback_context
+                    _ = asyncio.create_task(
+                        registry.streaming_response_orchestrator.generate_dynamic(
+                            context=fallback_context,
+                            session_uuid=(event.session_uuid),
+                        ),
+                        name=(f"dynamic-response-{event.connection_id}"),
                     )
-
-                    planned = None
-                    if fallback_result is not None and fallback_result.text:
-                        planned = response_planner.plan_dynamic(fallback_result.text)
-                    else:
-                        clarify_action_map = {
-                            FieldName.CONSENT: ActionType.CLARIFY_CONSENT,
-                            FieldName.FULL_NAME: ActionType.CLARIFY_NAME,
-                            FieldName.AGE: ActionType.CLARIFY_AGE,
-                            FieldName.MEDICARE_PART_A: ActionType.CLARIFY_PART_A,
-                            FieldName.MEDICARE_PART_B: ActionType.CLARIFY_PART_B,
-                            FieldName.ZIP_CODE: ActionType.CLARIFY_ZIP,
-                        }
-
-                        fallback_action_type = clarify_action_map.get(
-                            qualification_result.action.expected_field,
-                            ActionType.NO_ACTION,
-                        )
-
-                        if fallback_action_type != ActionType.NO_ACTION:
-                            from app.realtime.qualification.types import (
-                                ConversationAction,
-                            )
-
-                            fallback_action = ConversationAction(
-                                action_type=fallback_action_type,
-                                state=qualification_result.state,
-                                qualification_status=qualification_result.status,
-                            )
-                            planned = response_planner.plan_action(fallback_action)
-
-                    if planned:
-                        await registry.tts_service.enqueue(
-                            connection_id=event.connection_id,
-                            planned=planned,
-                            session_uuid=event.session_uuid,
-                        )
