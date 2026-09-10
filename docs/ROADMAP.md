@@ -10,11 +10,9 @@
 - **Phase 7:** Interruption and Barge-In (Halt TTS playback on user interruption, clear queues).
 - **Phase 8:** Qwen LLM Fallback (vLLM integration for handling out-of-domain complex questions via OpenAI-compatible provider).
 
-## Upcoming Phases
+- **Phase 9:** Streaming Response Orchestration (Chunked SSE generation passing partial sentences into the TTS engine to drop TTFA significantly, plus independent barge-in cancellation).
 
-### Phase 9: Response Streaming & Planning
-- Chunked generation passing partial sentences into the TTS engine to drop TTFA significantly.
-- Intelligent conversational planning to pipeline LLM output directly into incremental TTS generation.
+## Upcoming Phases
 
 ### Phase 10: Telephony Edge Resiliency
 - Enhancing jitter buffers and connection resilience to gracefully handle degraded AudioSocket PBX links.
