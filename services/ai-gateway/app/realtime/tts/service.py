@@ -165,6 +165,7 @@ class TTSService:
         connection_id: str,
         planned: PlannedResponse,
         session_uuid: str | None = None,
+        speech_end_ms: float = 0.0,
     ) -> bool:
         session = self._sessions.get(connection_id)
 
@@ -187,6 +188,7 @@ class TTSService:
                 generation=generation,
                 response_id=(ResponseId(planned.response_id)),
                 session_uuid=(session_uuid),
+                speech_end_ms=speech_end_ms,
             )
 
         else:
@@ -198,6 +200,7 @@ class TTSService:
                 generation=generation,
                 text=planned.text,
                 session_uuid=(session_uuid),
+                speech_end_ms=speech_end_ms,
             )
 
         if session.queue.full():
@@ -281,6 +284,14 @@ class TTSService:
 
         return (perf_counter() - session.playback_started_at) * 1000.0
 
+    def _provider_for_request(
+        self,
+        request: PlaybackRequest,
+    ) -> TTSProvider:
+        return (
+            self.pregenerated_provider if request.response_id else self.dynamic_provider
+        )
+
     async def _cancel_current_playback(
         self,
         session: TtsCallSession,
@@ -293,21 +304,18 @@ class TTSService:
         request = session.current_request
 
         if request is not None:
-            provider = (
-                self.pregenerated_provider
-                if request.response_id
-                else self.dynamic_provider
-            )
+            provider = self._provider_for_request(request)
 
-            try:
-                await provider.cancel(request.request_id)
+            if provider is not None and provider.supports_cancellation:
+                try:
+                    await provider.cancel(request.request_id)
 
-            except Exception:
-                logger.exception(
-                    "Provider cancellation failed connection_id=%s request_id=%s",
-                    session.connection_id,
-                    request.request_id,
-                )
+                except Exception:
+                    logger.exception(
+                        "TTS provider cancellation failed connection_id=%s request_id=%s",
+                        session.connection_id,
+                        request.request_id,
+                    )
 
         task.cancel()
 
@@ -330,12 +338,13 @@ class TTSService:
 
         while True:
             try:
-                session.queue.get_nowait()
+                request = session.queue.get_nowait()
 
             except asyncio.QueueEmpty:
                 break
 
             else:
+                del request
                 session.queue.task_done()
                 count += 1
 
@@ -431,6 +440,13 @@ class TTSService:
             elapsed_ms = (perf_counter_ns() - request.created_ns) / 1_000_000.0
 
             tts_metrics.first_audio_ms.append(elapsed_ms)
+
+            if request.speech_end_ms > 0:
+                from app.realtime.response.metrics import response_metrics
+
+                response_metrics.speech_end_to_first_bot_audio_ms.append(
+                    (perf_counter() * 1000.0) - request.speech_end_ms
+                )
 
         chunks = provider.stream(provider_request)
 

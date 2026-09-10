@@ -14,20 +14,55 @@ from .catalog import (
 
 class TTSRoute(str, Enum):
     PREGENERATED = "pregenerated"
-
+    TEMPLATE = "template"
     DYNAMIC = "dynamic"
 
 
 @dataclass(slots=True)
 class PlannedResponse:
     route: TTSRoute
-
     response_id: str | None = None
-
     text: str | None = None
 
 
 class ResponsePlanner:
+    def plan_pregenerated(
+        self,
+        response_id: str,
+    ) -> PlannedResponse:
+        return PlannedResponse(
+            route=TTSRoute.PREGENERATED,
+            response_id=response_id,
+        )
+
+    def plan_template(
+        self,
+        text: str,
+        response_id: str | None = None,
+    ) -> PlannedResponse:
+        cleaned = text.strip()
+        if not cleaned:
+            raise ValueError("Template TTS text cannot be empty")
+
+        return PlannedResponse(
+            route=TTSRoute.TEMPLATE,
+            response_id=response_id,
+            text=cleaned,
+        )
+
+    def plan_dynamic(
+        self,
+        text: str,
+    ) -> PlannedResponse:
+        cleaned = text.strip()
+        if not cleaned:
+            raise ValueError("Dynamic TTS text cannot be empty")
+
+        return PlannedResponse(
+            route=TTSRoute.DYNAMIC,
+            text=cleaned,
+        )
+
     def plan_action(
         self,
         action: ConversationAction,
@@ -37,24 +72,13 @@ class ResponsePlanner:
         if response is None:
             return None
 
-        return PlannedResponse(
-            route=(TTSRoute.PREGENERATED),
-            response_id=(response.response_id.value),
-        )
-
-    def plan_dynamic(
-        self,
-        text: str,
-    ) -> PlannedResponse:
-        cleaned = text.strip()
-
-        if not cleaned:
-            raise ValueError("Dynamic TTS text cannot be empty")
-
-        return PlannedResponse(
-            route=TTSRoute.DYNAMIC,
-            text=cleaned,
-        )
+        # Prioritize PREGENERATED. If the catalog provides text but no actual audio file exists,
+        # the TTSService handles falling back to DYNAMIC if the provider is dynamic.
+        # However, Phase 9 requested to formalize the routes.
+        # We will assume that if we are using the catalog, we should try PREGENERATED first,
+        # but if we needed variables (which this simplified system doesn't have yet), we'd use TEMPLATE.
+        # For now, catalog responses are PREGENERATED.
+        return self.plan_pregenerated(response.response_id.value)
 
 
 response_planner = ResponsePlanner()
