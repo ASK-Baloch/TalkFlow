@@ -63,7 +63,9 @@ async def test_barge_in_stops_playback():
     initial_interruptions = tts_metrics.interruptions_total
     initial_interrupted_playbacks = tts_metrics.interrupted_playbacks_total
 
-    planned = PlannedResponse(route=TTSRoute.DYNAMIC, text="dummy")
+    planned = PlannedResponse(
+        route=TTSRoute.DYNAMIC, display_text="dummy", tts_text="dummy"
+    )
     await tts_service.enqueue(connection_id=connection_id, planned=planned)
 
     # Wait 300 ms to let playback begin writing frames
