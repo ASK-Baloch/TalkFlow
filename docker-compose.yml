@@ -30,6 +30,7 @@ services:
         - ./services/ai-gateway/app:/app/app
         - ./services/ai-gateway/scripts:/app/scripts
         - ./config:/config
+        - ./config:/app/config
         - ./assets:/app/assets
 
     depends_on:
