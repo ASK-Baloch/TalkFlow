@@ -21,8 +21,12 @@ class TTSRoute(str, Enum):
 @dataclass(slots=True)
 class PlannedResponse:
     route: TTSRoute
+
     response_id: str | None = None
-    text: str | None = None
+
+    display_text: str | None = None
+
+    tts_text: str | None = None
 
 
 class ResponsePlanner:
@@ -47,7 +51,8 @@ class ResponsePlanner:
         return PlannedResponse(
             route=TTSRoute.TEMPLATE,
             response_id=response_id,
-            text=cleaned,
+            display_text=cleaned,
+            tts_text=cleaned,
         )
 
     def plan_dynamic(
@@ -55,12 +60,14 @@ class ResponsePlanner:
         text: str,
     ) -> PlannedResponse:
         cleaned = text.strip()
+
         if not cleaned:
-            raise ValueError("Dynamic TTS text cannot be empty")
+            raise ValueError("Dynamic text cannot be empty")
 
         return PlannedResponse(
             route=TTSRoute.DYNAMIC,
-            text=cleaned,
+            display_text=cleaned,
+            tts_text=cleaned,
         )
 
     def plan_action(
