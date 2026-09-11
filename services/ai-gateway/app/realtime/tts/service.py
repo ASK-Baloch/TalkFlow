@@ -192,13 +192,14 @@ class TTSService:
             )
 
         else:
-            if not planned.text:
+            text = planned.tts_text or planned.display_text
+            if not text:
                 raise ValueError("Dynamic response requires text")
 
             request = PlaybackRequest(
                 connection_id=(connection_id),
                 generation=generation,
-                text=planned.text,
+                text=text,
                 session_uuid=(session_uuid),
                 speech_end_ms=speech_end_ms,
             )

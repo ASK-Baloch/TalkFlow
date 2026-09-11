@@ -32,6 +32,7 @@ class StreamingResponseOrchestrator:
         llm_service,
         response_planner,
         tts_service,
+        speech_processor=None,
         assembler_factory,
     ) -> None:
         self._llm_service = llm_service
@@ -39,6 +40,8 @@ class StreamingResponseOrchestrator:
         self._response_planner = response_planner
 
         self._tts_service = tts_service
+
+        self._speech_processor = speech_processor
 
         self._assembler_factory = assembler_factory
 
@@ -158,6 +161,7 @@ class StreamingResponseOrchestrator:
                             session=session,
                             text=segment,
                             speech_end_ms=context.speech_end_ms,
+                            expected_field=getattr(context, "expected_field", None),
                         )
 
                 if chunk.is_final:
@@ -177,6 +181,7 @@ class StreamingResponseOrchestrator:
                     session=session,
                     text=segment,
                     speech_end_ms=context.speech_end_ms,
+                    expected_field=getattr(context, "expected_field", None),
                 )
 
         except asyncio.CancelledError:
@@ -201,6 +206,7 @@ class StreamingResponseOrchestrator:
         session: (StreamingResponseSession),
         text: str,
         speech_end_ms: float = 0.0,
+        expected_field: str | None = None,
     ) -> None:
         from app.realtime.response.metrics import response_metrics
 
@@ -216,6 +222,12 @@ class StreamingResponseOrchestrator:
         response_metrics.stream_segments_total += 1
 
         planned = self._response_planner.plan_dynamic(text)
+
+        if self._speech_processor:
+            planned = self._speech_processor.process(
+                planned,
+                expected_field=expected_field,
+            )
 
         success = await self._tts_service.enqueue(
             connection_id=(connection_id),
