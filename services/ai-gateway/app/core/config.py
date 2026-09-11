@@ -130,6 +130,20 @@ class Settings(BaseSettings):
     tts_dummy_frames: int = 10
     stt_dummy_text: str = "Yes"
 
+    speech_normalization_enabled: bool = True
+    speech_language: str = "en-US"
+    speech_pronunciation_lexicon: str = "config/pronunciation/en-US.json"
+    speech_normalize_zip_codes: bool = True
+    speech_normalize_phone_numbers: bool = True
+    speech_normalize_currency: bool = True
+    speech_normalize_percentages: bool = True
+    speech_normalize_numbers: bool = True
+    speech_collapse_whitespace: bool = True
+    speech_strip_markdown: bool = True
+    speech_max_text_chars: int = 1000
+    speech_log_normalization: bool = False
+    speech_provider_adapter_enabled: bool = True
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../../.env"),
         case_sensitive=False,

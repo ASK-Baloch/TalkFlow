@@ -95,6 +95,34 @@ async def lifespan(app: FastAPI):
         ),
     )
 
+    from app.realtime.speech.lexicon import PronunciationLexicon
+    from app.realtime.speech.normalizer import SpeechNormalizer
+    from app.realtime.speech.service import SpeechNormalizationService
+
+    speech_lexicon = PronunciationLexicon.from_file(
+        settings.speech_pronunciation_lexicon
+    )
+
+    speech_normalizer = SpeechNormalizer(
+        lexicon=speech_lexicon,
+        normalize_zip_codes=settings.speech_normalize_zip_codes,
+        normalize_phone_numbers=settings.speech_normalize_phone_numbers,
+        normalize_currency=settings.speech_normalize_currency,
+        normalize_percentages=settings.speech_normalize_percentages,
+        normalize_numbers=settings.speech_normalize_numbers,
+        strip_markdown=settings.speech_strip_markdown,
+        collapse_whitespace=settings.speech_collapse_whitespace,
+        provider_adapter_enabled=settings.speech_provider_adapter_enabled,
+        max_text_chars=settings.speech_max_text_chars,
+    )
+
+    registry.speech_service = SpeechNormalizationService(
+        normalizer=speech_normalizer,
+        enabled=settings.speech_normalization_enabled,
+        log_normalization=settings.speech_log_normalization,
+    )
+
+    from app.realtime.response.speech import ResponseSpeechProcessor
     from app.realtime.response.stream_assembler import (
         SentenceStreamAssembler,
         StreamAssemblerConfig,
@@ -102,10 +130,13 @@ async def lifespan(app: FastAPI):
     from app.realtime.response.streaming import StreamingResponseOrchestrator
     from app.realtime.tts.planner import response_planner
 
+    speech_processor = ResponseSpeechProcessor(speech_service=registry.speech_service)
+
     registry.streaming_response_orchestrator = StreamingResponseOrchestrator(
         llm_service=registry.llm_service,
         response_planner=response_planner,
         tts_service=registry.tts_service,
+        speech_processor=speech_processor,
         assembler_factory=lambda: SentenceStreamAssembler(
             config=StreamAssemblerConfig()
         ),
@@ -418,12 +449,9 @@ class TTSDynamicRequest(BaseModel):
 
 @app.post("/internal/tts/dynamic")
 async def tts_dynamic_test(request: TTSDynamicRequest):
-    from app.realtime.tts.planner import PlannedResponse, TTSRoute
+    from app.realtime.tts.planner import response_planner
 
-    planned = PlannedResponse(
-        route=TTSRoute.DYNAMIC,
-        text=request.text,
-    )
+    planned = response_planner.plan_dynamic(request.text)
     success = await registry.tts_service.enqueue(
         connection_id=request.connection_id,
         planned=planned,
@@ -516,4 +544,29 @@ async def llm_test(request: LLMTestRequest):
         "latency_ms": result.latency_ms,
         "prompt_tokens": result.prompt_tokens,
         "completion_tokens": result.completion_tokens,
+    }
+
+
+class SpeechNormalizationRequest(BaseModel):
+    text: str
+    expected_field: str | None = None
+    provider: str | None = None
+
+
+@app.post("/internal/speech/normalize")
+async def speech_normalize_test(request: SpeechNormalizationRequest):
+    from app.realtime.speech.types import SpeechNormalizationContext
+
+    context = SpeechNormalizationContext(
+        expected_field=request.expected_field,
+        provider_name=request.provider,
+    )
+
+    result = registry.speech_service.normalize(request.text, context=context)
+
+    return {
+        "display_text": result.display_text,
+        "tts_text": result.tts_text,
+        "changed": result.changed,
+        "rules_applied": result.rules_applied,
     }

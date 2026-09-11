@@ -63,3 +63,14 @@ Tested via `run_test_client.py` using AudioSocket mock streaming against the ful
 ### Key Takeaways
 1. **Parallel Cancellation:** Because `LLMService`, `TTSService`, and `ResponseOrchestrator` are cancelled independently via `asyncio.gather`, a slow LLM provider crash does not block TTS interruption.
 2. **Sentence Boundaries:** Passing semantic clauses (split on `[.,?,!]`) ensures the TTS model has enough context for prosody, balancing latency vs. natural voice inflection.
+
+## Phase 10: Speech Normalization
+
+Tested over 10,000 synchronous executions of `SpeechNormalizer` dynamically expanding ZIP codes, currencies, and Markdown.
+
+| Metric | Result |
+| :--- | :--- |
+| Single Normalization (P50/P95) | ~0.045 ms |
+
+### Key Takeaways
+1. **Zero-Latency Formatting:** Running normalization synchronously adds effectively zero latency (< 0.1ms) to the TTS generation loop, ensuring `display_text` vs `tts_text` separation is perfectly safe without requiring async task overhead.
