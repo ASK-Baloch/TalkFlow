@@ -23,6 +23,10 @@ LLMProvider  ← (cancel generation)
         ↓               │
 SentenceAssembler       │
         ↓               │
+ResponsePlanner         │
+        ↓               │
+ResponseSpeechProcessor │
+        ↓               │
 TTSProvider  ← (interrupt playback)
         ↓               
 20 ms PCM frames ← generation invalidation
