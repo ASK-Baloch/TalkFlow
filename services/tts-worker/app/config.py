@@ -8,9 +8,7 @@ def _bool(
     name: str,
     default: bool,
 ) -> bool:
-    value = os.getenv(
-        name
-    )
+    value = os.getenv(name)
 
     if value is None:
         return default
@@ -49,8 +47,7 @@ class WorkerSettings:
 
     reference_audio: str = os.getenv(
         "TTS_WORKER_REFERENCE_AUDIO",
-        "tools/tts-assets/reference/"
-        "talkflow_reference.wav",
+        "tools/tts-assets/reference/talkflow_reference.wav",
     )
 
     target_sample_rate: int = int(

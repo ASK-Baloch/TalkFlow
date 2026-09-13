@@ -21,15 +21,10 @@ def read_wav(path: Path) -> tuple[np.ndarray, int]:
         sample_width = wav.getsampwidth()
         sample_rate = wav.getframerate()
 
-        frames = wav.readframes(
-            wav.getnframes()
-        )
+        frames = wav.readframes(wav.getnframes())
 
     if sample_width != 2:
-        raise ValueError(
-            f"{path}: expected PCM16 WAV, got "
-            f"{sample_width * 8}-bit"
-        )
+        raise ValueError(f"{path}: expected PCM16 WAV, got {sample_width * 8}-bit")
 
     audio = np.frombuffer(
         frames,
@@ -60,11 +55,7 @@ def to_pcm16(audio: np.ndarray) -> bytes:
         neginf=-1.0,
     )
 
-    peak = (
-        float(np.max(np.abs(audio)))
-        if audio.size
-        else 0.0
-    )
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
 
     if peak > 0.98:
         audio *= 0.98 / peak
@@ -75,9 +66,7 @@ def to_pcm16(audio: np.ndarray) -> bytes:
         1.0,
     )
 
-    return np.round(
-        audio * 32767.0
-    ).astype("<i2").tobytes()
+    return np.round(audio * 32767.0).astype("<i2").tobytes()
 
 
 def main() -> None:
@@ -92,21 +81,15 @@ def main() -> None:
         "responses": {},
     }
 
-    wav_files = sorted(
-        ASSET_DIR.glob("*.wav")
-    )
+    wav_files = sorted(ASSET_DIR.glob("*.wav"))
 
     if not wav_files:
-        raise RuntimeError(
-            f"No WAV files found in {ASSET_DIR}"
-        )
+        raise RuntimeError(f"No WAV files found in {ASSET_DIR}")
 
     for wav_path in wav_files:
         response_id = wav_path.stem
 
-        audio, source_rate = read_wav(
-            wav_path
-        )
+        audio, source_rate = read_wav(wav_path)
 
         resampled = soxr.resample(
             audio,
@@ -117,28 +100,17 @@ def main() -> None:
 
         pcm = to_pcm16(resampled)
 
-        pcm_path = (
-            ASSET_DIR
-            / f"{response_id}.pcm"
-        )
+        pcm_path = ASSET_DIR / f"{response_id}.pcm"
 
         pcm_path.write_bytes(pcm)
 
-        sha256 = hashlib.sha256(
-            pcm
-        ).hexdigest()
+        sha256 = hashlib.sha256(pcm).hexdigest()
 
         sample_count = len(pcm) // 2
 
-        duration_ms = (
-            sample_count
-            / TARGET_SAMPLE_RATE
-            * 1000
-        )
+        duration_ms = sample_count / TARGET_SAMPLE_RATE * 1000
 
-        manifest["responses"][
-            response_id
-        ] = {
+        manifest["responses"][response_id] = {
             "file": pcm_path.name,
             "source_file": wav_path.name,
             "source_sample_rate": source_rate,
@@ -151,15 +123,9 @@ def main() -> None:
             "sha256": sha256,
         }
 
-        print(
-            f"{response_id}: "
-            f"{source_rate} Hz -> 8000 Hz, "
-            f"{duration_ms:.1f} ms"
-        )
+        print(f"{response_id}: {source_rate} Hz -> 8000 Hz, {duration_ms:.1f} ms")
 
-    manifest_path = (
-        ASSET_DIR / "manifest.json"
-    )
+    manifest_path = ASSET_DIR / "manifest.json"
 
     manifest_path.write_text(
         json.dumps(
@@ -170,12 +136,8 @@ def main() -> None:
     )
 
     print()
-    print(
-        f"Converted {len(wav_files)} assets."
-    )
-    print(
-        f"Manifest: {manifest_path}"
-    )
+    print(f"Converted {len(wav_files)} assets.")
+    print(f"Manifest: {manifest_path}")
 
 
 if __name__ == "__main__":

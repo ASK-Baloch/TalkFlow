@@ -42,3 +42,4 @@ nvidia-cublas-cu12
 nvidia-cudnn-cu12
 soxr
 faster-whisper
+aiokafka==0.10.0

@@ -20,9 +20,7 @@ from .schemas import (
     SynthesisRequest,
 )
 
-runtime = ChatterboxRuntime(
-    settings
-)
+runtime = ChatterboxRuntime(settings)
 
 
 @asynccontextmanager
@@ -49,38 +47,23 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     return {
-        "ready": (
-            runtime.model is not None
-        ),
-        "provider": (
-            "chatterbox_turbo"
-        ),
-        "device": (
-            settings.device
-        ),
-        "voice_id": (
-            settings.voice_id
-        ),
-        "target_sample_rate": (
-            settings
-            .target_sample_rate
-        ),
+        "ready": (runtime.model is not None),
+        "provider": ("chatterbox_turbo"),
+        "device": (settings.device),
+        "voice_id": (settings.voice_id),
+        "target_sample_rate": (settings.target_sample_rate),
         "native_model_streaming": False,
     }
 
 
-@app.post(
-    "/v1/synthesize"
-)
+@app.post("/v1/synthesize")
 async def synthesize(
     request: SynthesisRequest,
 ):
     try:
         pcm = await runtime.synthesize(
             text=request.text,
-            voice_id=(
-                request.voice_id
-            ),
+            voice_id=(request.voice_id),
         )
 
     except ValueError as exc:
@@ -101,27 +84,16 @@ async def synthesize(
         offset = 0
 
         while offset < len(pcm):
-            yield pcm[
-                offset:
-                offset
-                + frame_bytes
-            ]
+            yield pcm[offset : offset + frame_bytes]
 
-            offset += (
-                frame_bytes
-            )
+            offset += frame_bytes
 
     return StreamingResponse(
         iterator(),
-        media_type=(
-            "application/octet-stream"
-        ),
+        media_type=("application/octet-stream"),
         headers={
-            "X-Audio-Sample-Rate":
-                "8000",
-            "X-Audio-Channels":
-                "1",
-            "X-Audio-Format":
-                "pcm_s16le",
+            "X-Audio-Sample-Rate": "8000",
+            "X-Audio-Channels": "1",
+            "X-Audio-Format": "pcm_s16le",
         },
     )

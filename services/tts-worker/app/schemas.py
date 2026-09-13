@@ -4,9 +4,7 @@ from pydantic import (
 )
 
 
-class SynthesisRequest(
-    BaseModel
-):
+class SynthesisRequest(BaseModel):
     text: str = Field(
         min_length=1,
         max_length=500,

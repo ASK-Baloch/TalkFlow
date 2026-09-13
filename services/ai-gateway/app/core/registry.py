@@ -8,6 +8,7 @@ class Registry:
     turn_controller = None
     streaming_response_orchestrator = None
     speech_service = None
+    recording_coordinator = None
 
 
 registry = Registry()

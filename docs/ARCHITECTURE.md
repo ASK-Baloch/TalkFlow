@@ -46,7 +46,11 @@ Heavy neural generation runs out-of-process to protect the real-time Gateway.
 - **Chatterbox TTS Worker**: An independent HTTP microservice housing the generative neural TTS engine. The AI Gateway sends text over the local network, and the worker synthesizes and returns full PCM streams, isolating PyTorch/CUDA demands from the core connection loop.
 - **vLLM Inference Server**: An independent worker running Qwen3-8B-AWQ (or Qwen2.5-1.5B-AWQ for lower hardware profiles), providing fast, non-streaming completion for conversational fallback generation without blocking the Gateway.
 
+### 4. Background Workers
+- **Recording Worker**: An asynchronous consumer that processes call completion events. It securely pulls native full-duplex recordings off the Asterisk edge via SFTP, validates checksums, and pushes them to persistent long-term storage (local or S3) completely out-of-band from the real-time AI loop.
+
 ## Design Principles
 - **Strict Decoupling**: Business logic never touches model SDKs directly.
 - **Isolate ML**: Heavy inference (generative TTS, LLM Fallback) runs in separate processes.
 - **Paced Output**: Never push audio faster than real-time to avoid overwhelming the PBX.
+- **Failure Isolation**: Edge telemetry, logging, and recordings must never block or crash the real-time telephony loop.
