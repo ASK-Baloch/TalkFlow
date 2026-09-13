@@ -33,6 +33,7 @@ logs/
 data/
 models/
 recordings/
+secrets/
 
 # Docker
 docker-data/

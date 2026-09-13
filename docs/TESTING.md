@@ -32,7 +32,14 @@ The repository uses a mock `run_test_client.py` for headless integration.
 3. Observes the response TTS frames flowing back in real-time.
 4. Simulates barge-ins by halting the mock stream and observing immediate connection flush.
 
-## 4. QA Speech Corpus
+### 4. QA Speech Corpus
 Validates the `SpeechNormalizer` logic to ensure domain terms (Medicare Part A, ZIP codes, phones) are properly separated into `tts_text` without altering canonical `display_text`.
 - **Lexicon Loading:** Asserts the configuration-driven JSON lexicon properly loads exactly once and translates accurately without case-sensitivity errors.
 - **Order of Operations:** Asserts that general numbers don't inadvertently corrupt explicit ZIP codes or phone numbers by applying tightly ordered regex passes.
+
+## 5. Background Workers & Resiliency (Phase 11)
+Validates that background operations like Call Recording never impact the real-time telephony edge.
+- **Offline Broker Test:** Bringing down the Kafka broker proves that live calls still operate perfectly and native Asterisk recordings are still safely written to the PBX spool.
+- **Offline Worker Test:** Bringing down the `recording-worker` proves that queued completion events simply build up and are processed idempotently upon restart.
+- **Corrupt File Resistance:** Creating dummy/corrupted WAV files on the Asterisk spool proves that the worker's strict header validation correctly shifts the job to `FAILED` without crashing the processor loop.
+- **Storage Disconnection:** Unwritable local mounts or offline S3 buckets result in standard retries, ensuring no file on Asterisk is deleted until perfectly stored.

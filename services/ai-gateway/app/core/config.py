@@ -141,6 +141,9 @@ class Settings(BaseSettings):
     speech_collapse_whitespace: bool = True
     speech_strip_markdown: bool = True
     speech_max_text_chars: int = 1000
+
+    kafka_bootstrap_servers: str = "kafka:9092"
+
     speech_log_normalization: bool = False
     speech_provider_adapter_enabled: bool = True
 

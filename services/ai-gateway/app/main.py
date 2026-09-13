@@ -14,6 +14,8 @@ from app.realtime.audiosocket.server import audiosocket_server
 from app.realtime.llm.service import LLMService
 from app.realtime.qualification.metrics import qualification_metrics
 from app.realtime.qualification.service import qualification_service
+from app.realtime.recording.coordinator import RecordingCoordinator
+from app.realtime.recording.publisher import RecordingRequestPublisher
 from app.realtime.tts.metrics import tts_metrics
 from app.realtime.tts.service import TTSService
 from app.realtime.vad.metrics import vad_metrics
@@ -150,12 +152,21 @@ async def lifespan(app: FastAPI):
         response_orchestrator=registry.streaming_response_orchestrator,
     )
 
+    recording_publisher = RecordingRequestPublisher(
+        bootstrap_servers=settings.kafka_bootstrap_servers,
+    )
+    registry.recording_coordinator = RecordingCoordinator(publisher=recording_publisher)
+
     await vad_service.start()
     await registry.asr_service.start()
     await qualification_service.start()
     await registry.tts_service.start()
     await registry.llm_service.start()
     await audiosocket_server.start()
+    if registry.recording_coordinator and hasattr(
+        registry.recording_coordinator.publisher, "start"
+    ):
+        await registry.recording_coordinator.publisher.start()
 
     try:
         yield
@@ -173,6 +184,11 @@ async def lifespan(app: FastAPI):
         await vad_service.stop()
 
         await qualification_service.stop()
+
+        if registry.recording_coordinator and hasattr(
+            registry.recording_coordinator.publisher, "stop"
+        ):
+            await registry.recording_coordinator.publisher.stop()
 
 
 app = FastAPI(
