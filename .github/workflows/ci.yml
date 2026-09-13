@@ -11,11 +11,15 @@ on:
 jobs:
 
   python:
-
     runs-on: ubuntu-latest
 
-    steps:
+    strategy:
+      matrix:
+        service:
+          - ai-gateway
+          - recording-worker
 
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -25,17 +29,23 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        working-directory: services/ai-gateway
+        working-directory: services/${{ matrix.service }}
         run: |
-          pip install --no-cache-dir -r requirements-ci.txt
+          if [ -f "requirements-ci.txt" ]; then
+            pip install --no-cache-dir -r requirements-ci.txt
+          else
+            pip install --no-cache-dir -r requirements.txt
+          fi
+          pip install ruff pytest
 
-      - name: Lint
-        working-directory: services/ai-gateway
+      - name: Lint & Format Check
+        working-directory: services/${{ matrix.service }}
         run: |
           ruff check .
+          ruff format --check .
 
       - name: Test
-        working-directory: services/ai-gateway
+        working-directory: services/${{ matrix.service }}
         env:
           DATABASE_URL: "postgresql+asyncpg://test:test@localhost:5432/test"
           REDIS_URL: "redis://localhost:6379/0"
