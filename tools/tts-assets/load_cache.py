@@ -21,19 +21,11 @@ async def load_cache(
     asset_dir: Path,
     prefix: str,
 ) -> None:
-    manifest_path = (
-        asset_dir / "manifest.json"
-    )
+    manifest_path = asset_dir / "manifest.json"
 
-    manifest = json.loads(
-        manifest_path.read_text(
-            encoding="utf-8"
-        )
-    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    version = manifest[
-        "asset_version"
-    ]
+    version = manifest["asset_version"]
 
     client = redis.from_url(
         redis_url,
@@ -43,26 +35,15 @@ async def load_cache(
     try:
         await client.ping()
 
-        pipeline = client.pipeline(
-            transaction=False
-        )
+        pipeline = client.pipeline(transaction=False)
 
         for (
             response_id,
             metadata,
-        ) in manifest[
-            "responses"
-        ].items():
-            pcm = (
-                asset_dir
-                / metadata["file"]
-            ).read_bytes()
+        ) in manifest["responses"].items():
+            pcm = (asset_dir / metadata["file"]).read_bytes()
 
-            key = (
-                f"{prefix}:"
-                f"{version}:"
-                f"{response_id}"
-            )
+            key = f"{prefix}:{version}:{response_id}"
 
             pipeline.set(
                 key,
@@ -70,10 +51,7 @@ async def load_cache(
             )
 
         pipeline.set(
-            (
-                f"{prefix}:"
-                f"{version}:manifest"
-            ),
+            (f"{prefix}:{version}:manifest"),
             json.dumps(
                 manifest,
                 ensure_ascii=False,
@@ -82,11 +60,7 @@ async def load_cache(
 
         await pipeline.execute()
 
-        print(
-            f"Loaded "
-            f"{len(manifest['responses'])} "
-            f"TTS assets into Redis"
-        )
+        print(f"Loaded {len(manifest['responses'])} TTS assets into Redis")
 
     finally:
         await client.aclose()
@@ -97,16 +71,12 @@ def main() -> None:
 
     parser.add_argument(
         "--redis-url",
-        default=(
-            "redis://127.0.0.1:6379/0"
-        ),
+        default=("redis://127.0.0.1:6379/0"),
     )
 
     parser.add_argument(
         "--asset-dir",
-        default=(
-            "assets/tts/talkflow-v1"
-        ),
+        default=("assets/tts/talkflow-v1"),
     )
 
     parser.add_argument(
@@ -118,13 +88,8 @@ def main() -> None:
 
     asyncio.run(
         load_cache(
-            redis_url=(
-                args.redis_url
-            ),
-            asset_dir=(
-                ROOT
-                / args.asset_dir
-            ).resolve(),
+            redis_url=(args.redis_url),
+            asset_dir=(ROOT / args.asset_dir).resolve(),
             prefix=args.prefix,
         )
     )
