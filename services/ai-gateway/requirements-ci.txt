@@ -40,3 +40,4 @@ onnxruntime==1.29.0
 silero-vad==6.2.1
 soxr
 faster-whisper
+aiokafka==0.10.0
