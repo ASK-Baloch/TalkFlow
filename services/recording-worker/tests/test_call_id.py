@@ -1,4 +1,5 @@
 import pytest
+
 from app.call_id import (
     validate_call_id,
 )
