@@ -11,11 +11,12 @@
 - **Phase 8:** Qwen LLM Fallback (vLLM integration for handling out-of-domain complex questions via OpenAI-compatible provider).
 - **Phase 9:** Streaming Response Orchestration (Chunked SSE generation passing partial sentences into the TTS engine to drop TTFA significantly, plus independent barge-in cancellation).
 - **Phase 10:** Speech Normalization (Separating `display_text` vs `tts_text`, expanding ZIPs/phones, and applying JSON pronunciation lexicons synchronously before TTS).
+- **Phase 11:** Call Recording (Asynchronous processing of full-duplex recordings using Asterisk MixMonitor, SFTP, and PostgreSQL).
 
 ## Upcoming Phases
 
-### Phase 11: Telephony Edge Resiliency
+### Phase 12: Telephony Edge Resiliency
 - Enhancing jitter buffers and connection resilience to gracefully handle degraded AudioSocket PBX links.
 
-### Phase 12: Multi-tenant Scaling
+### Phase 13: Multi-tenant Scaling
 - Expanding the backend to handle large concurrency across multiple concurrent remote AudioSockets, sharding model workers and caching components.

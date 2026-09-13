@@ -13,3 +13,9 @@
 ## Audio Processing
 - Caller audio is processed temporarily in memory for Voice Activity Detection and Streaming ASR. Raw audio files are not persisted to disk in production.
 - Telephony connectivity occurs via the AudioSocket protocol over private infrastructure or secure SSH tunnels.
+
+## Call Recording (Phase 11)
+- **Edge Storage Protection**: Asterisk `MixMonitor` writes recordings directly to the local spool. The `ai-gateway` has absolutely no disk access to this data.
+- **Read-Only SFTP**: The `recording-worker` pulls completed recordings using the `talkflow_recordings` SFTP user, which is strictly restricted to **read-only** access. It is impossible for a compromised worker to corrupt or delete edge recordings.
+- **Cryptographic Validation**: All processed `.wav` files are hashed via SHA-256 upon receipt. The checksum is persisted in PostgreSQL to guarantee downstream file integrity.
+- **Docker Secrets**: SFTP private keys (`asterisk_recording_key`), known hosts, and encrypted passphrases (`ASTERISK_SFTP_PASSPHRASE`) are securely managed via Docker secrets, avoiding environment variable leaks.
