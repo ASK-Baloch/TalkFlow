@@ -137,6 +137,13 @@ class AudioSocketServer:
         finally:
             session.terminated = True
 
+            if getattr(registry, "recording_coordinator", None):
+                asyncio.create_task(
+                    registry.recording_coordinator.call_ended(
+                        call_id=session.session_uuid
+                    )
+                )
+
             await registry.asr_service.detach_session(connection_id)
             await vad_service.detach_session(connection_id)
             await qualification_service.detach_session(connection_id)
