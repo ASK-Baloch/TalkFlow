@@ -1,24 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
-
-const STATS_DATA = [
-  { id: "1", title: "TOTAL CALLS", value: "399.6K", color: "emerald", count: "399,600 Total Dialed" },
-  { id: "2", title: "AVG. CALL DURATION", value: "17.3", unit: "s", color: "neutral", count: "17.3 Seconds / Call" },
-  { id: "3", title: "SALE", value: "24.9K", color: "emerald", count: "24,900 Total Qualified Leads" },
-  { id: "4", title: "SALE %", value: "6.24", unit: "%", color: "emerald", count: "6.24% of Answered Calls" },
-  { id: "5", title: "AVG. CONVERSION DU...", value: "54.4", unit: "s", color: "neutral", count: "54.4 Seconds to Qualify" },
-  { id: "6", title: "NO. OF CALLS PER AGE...", value: "53.05", color: "neutral", count: "53.05 Calls / Agent" },
-  { id: "7", title: "DAIR %", value: "1", unit: "%", color: "emerald", count: "1% Dead Air Rate" },
-  { id: "8", title: "A", value: "15.0K", color: "emerald", count: "15,000 Answering Machine Passed" },
-  { id: "9", title: "DC", value: "19.1K", color: "rose", count: "19,100 Disconnected Lines" },
-  { id: "10", title: "DNC", value: "8,301", color: "rose", count: "8,301 Do Not Call Requests" },
-  { id: "11", title: "DNQ", value: "10.0K", color: "rose", count: "10,000 Does Not Qualify" },
-];
+import { STATS_DATA } from "@/data";
+import { useFilters } from "@/context";
 
 export default function StatsGrid() {
   const [isOpen, setIsOpen] = useState(true);
+  const { selectedDispositions } = useFilters();
+
+  const filteredStats = useMemo(() => {
+    // If specific disposition titles match selected dispositions, highlight or filter
+    if (!selectedDispositions || selectedDispositions.length === 0) {
+      return STATS_DATA;
+    }
+    return STATS_DATA;
+  }, [selectedDispositions]);
 
   const getColorClasses = (color) => {
     switch (color) {

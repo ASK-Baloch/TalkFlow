@@ -9,3 +9,60 @@ html {
 body {
   @apply min-h-screen antialiased transition-colors duration-200;
 }
+
+/* Caret / typing cursor (|) styling */
+input, textarea, select {
+  caret-color: #34d399; /* Bright emerald typing cursor | */
+}
+
+/* Enforce dark background (#121215), white text (#ffffff), and emerald focus border like Pic 2 */
+.bg-neutral-950 input,
+.bg-\[\#0d0d0f\] input,
+.dark input,
+input.bg-\[\#18181c\],
+input.bg-\[\#121215\],
+input.bg-neutral-900 {
+  background-color: #121215 !important;
+  color: #ffffff !important;
+  border-color: #262626 !important;
+  caret-color: #34d399 !important;
+}
+
+.bg-neutral-950 input:focus,
+.bg-\[\#0d0d0f\] input:focus,
+.dark input:focus,
+input.bg-\[\#18181c\]:focus,
+input.bg-\[\#121215\]:focus,
+input.bg-neutral-900:focus {
+  background-color: #121215 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px #10b981 !important;
+}
+
+/* Global autofill styles for dark theme & login page inputs */
+.bg-neutral-950 input:-webkit-autofill,
+.bg-neutral-950 input:-webkit-autofill:hover,
+.bg-neutral-950 input:-webkit-autofill:focus,
+.bg-neutral-950 input:-webkit-autofill:active,
+.bg-\[\#0d0d0f\] input:-webkit-autofill,
+.bg-\[\#0d0d0f\] input:-webkit-autofill:hover,
+.bg-\[\#0d0d0f\] input:-webkit-autofill:focus,
+.bg-\[\#0d0d0f\] input:-webkit-autofill:active,
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 0 0px 1000px #121215 inset !important;
+  transition: background-color 5000000s ease-in-out 0s;
+  caret-color: #34d399 !important;
+}
+
+/* Light mode input autofill override strictly for light container inputs */
+:where(html:not(.dark)) div:not(.bg-neutral-950):not(.bg-\[\#0d0d0f\]) > input.bg-white:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  caret-color: #0f172a !important;
+}

@@ -1,15 +1,18 @@
 "use client";
 
 import React from "react";
-import TopNavbar from "../dashboard/TopNavbar";
-import FilterToolbox from "../dashboard/FilterToolbox";
-import SubHeader from "../dashboard/SubHeader";
-import StatsGrid from "../dashboard/StatsGrid";
-import DispositionChart from "../dashboard/DispositionChart";
-import DispositionComparison from "../dashboard/DispositionComparison";
-import CallsBucketChart from "../dashboard/CallsBucketChart";
-import CallsPerDayChart from "../dashboard/CallsPerDayChart"; 
-import PerformanceSection from "../dashboard/PerformanceSection";       
+import FilterToolbox from "./FilterToolbox";
+import SubHeader from "./SubHeader";
+import StatsGrid from "./StatsGrid";
+import PerformanceSection from "./PerformanceSection";
+import {
+  DispositionChart,
+  DispositionComparison,
+  CallsBucketChart,
+  CallsPerDayChart,
+  ViciListBreakdown,
+} from "@/components/charts";
+import { CallsDataTable } from "@/components/reports";
 
 export default function DashboardView() {
   const handleRefresh = () => {
@@ -26,10 +29,7 @@ export default function DashboardView() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-neutral-100 text-neutral-900 transition-colors duration-200 dark:bg-[#050505] dark:text-neutral-100">
-      {/* 1. Top Navigation Bar */}
-      <TopNavbar />
-
-      {/* 2. Filter Toolbar */}
+      {/* 1. Filter Toolbar */}
       <FilterToolbox onRefresh={handleRefresh} />
 
       {/* 3. SubHeader with Action Buttons */}
@@ -68,6 +68,16 @@ export default function DashboardView() {
         {/* Row 5: Agent & Script Performance (XFER% Gauges) */}
         <div className="w-full">
           <PerformanceSection />
+        </div>
+
+        {/* Row 6: Disposition Breakdown by Vici List */}
+        <div className="w-full">
+          <ViciListBreakdown />
+        </div>
+
+        {/* Row 7: Calls Data Table */}
+        <div className="w-full">
+          <CallsDataTable />
         </div>
       </main>
     </div>
