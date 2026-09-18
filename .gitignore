@@ -30,7 +30,7 @@ Thumbs.db
 logs/
 
 # Local data
-data/
+/data/
 models/
 recordings/
 secrets/
