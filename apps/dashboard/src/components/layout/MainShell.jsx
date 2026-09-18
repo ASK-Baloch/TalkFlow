@@ -49,7 +49,8 @@ export default function MainShell({ initialTab, initialAction }) {
   const viewTab = isTabAllowed ? activeTab : "dashboard";
   const viewAction = isTabAllowed ? activeAction : null;
 
-  // Synchronize URL path & query parameters on load
+  // Synchronize URL path & query parameters on load. Reads window.location,
+  // a browser-only API unavailable during SSR, so it can only run post-mount.
   useEffect(() => {
     if (typeof window !== "undefined") {
       const pathname = window.location.pathname;
@@ -57,6 +58,7 @@ export default function MainShell({ initialTab, initialAction }) {
       const queryTab = searchParams.get("tab");
 
       if (queryTab) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab(queryTab);
       } else {
         const pathSegments = pathname.split("/").filter(Boolean);

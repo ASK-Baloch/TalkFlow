@@ -1,8 +1,10 @@
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
 class RolePublic(BaseModel):
-    id: int
+    id: UUID
     name: str
     domain: str
     description: str | None = None

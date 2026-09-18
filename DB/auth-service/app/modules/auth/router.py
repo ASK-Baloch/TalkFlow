@@ -9,7 +9,6 @@ from app.modules.account.service import (
     create_user_session,
     generate_token_id,
     revoke_user_session,
-    touch_session,
 )
 from app.modules.auth.model import User, UserStatus
 from app.modules.auth.schema import (
@@ -115,7 +114,9 @@ async def register(
     return await _issue_token(db, user, request, generate_token_id())
 
 
-@router.post("/signup", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup", response_model=MessageResponse, status_code=status.HTTP_201_CREATED
+)
 async def signup(
     payload: SignupRequest,
     db: AsyncSession = Depends(get_db),

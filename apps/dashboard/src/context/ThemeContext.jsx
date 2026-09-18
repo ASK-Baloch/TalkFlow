@@ -8,9 +8,12 @@ export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState("dark"); // "dark" | "light"
 
   useEffect(() => {
+    // Reads a browser-only API (localStorage) unavailable during SSR, so the
+    // theme can only be resolved post-mount.
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("talkflow_theme");
       if (savedTheme === "light") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTheme("light");
         document.documentElement.classList.remove("dark");
       } else {

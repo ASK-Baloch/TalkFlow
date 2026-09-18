@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from app.modules.auth.model import UserStatus
@@ -33,7 +35,7 @@ class SignupRequest(BaseModel):
 
 
 class UserPublic(BaseModel):
-    id: int
+    id: UUID
     username: str | None = None
     email: str
     firstName: str | None = None

@@ -18,3 +18,13 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.52",
     "uvicorn[standard]>=0.52.4",
 ]
+
+[tool.ruff]
+# Alembic's own `alembic revision` template generates these files; leave
+# their style alone rather than rewriting migration history for lint.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# B008: FastAPI's Depends()-as-default is the framework's own required
+# pattern, not a bug. BLE001: matches services/ai-gateway's convention.
+extend-ignore = ["B008", "BLE001"]

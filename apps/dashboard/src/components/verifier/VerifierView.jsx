@@ -33,14 +33,13 @@ export default function VerifierView({ initialAction, onActionChange }) {
   const { user } = useAuth();
   const [activeSubtab, setActiveSubtab] = useState(initialAction === "history" ? "history" : "workspace");
 
-  // Sync subtab when prop changes
-  React.useEffect(() => {
-    if (initialAction === "history") {
-      setActiveSubtab("history");
-    } else {
-      setActiveSubtab("workspace");
-    }
-  }, [initialAction]);
+  // Sync subtab when prop changes (adjusting state during render instead of
+  // in an effect avoids an extra, visible render pass).
+  const [prevInitialAction, setPrevInitialAction] = useState(initialAction);
+  if (initialAction !== prevInitialAction) {
+    setPrevInitialAction(initialAction);
+    setActiveSubtab(initialAction === "history" ? "history" : "workspace");
+  }
 
   const handleTabClick = (tab) => {
     setActiveSubtab(tab);
@@ -451,7 +450,7 @@ export default function VerifierView({ initialAction, onActionChange }) {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4 dark:border-neutral-800">
               <div>
                 <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                  <History className="h-4 w-4 text-blue-600" /> Verifier's Completed Verifications History
+                  <History className="h-4 w-4 text-blue-600" /> Verifier&apos;s Completed Verifications History
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Complete audit log of all Medicare qualification transfers verified by {user?.firstName || user?.username || "User"} {user?.lastName || ""}.

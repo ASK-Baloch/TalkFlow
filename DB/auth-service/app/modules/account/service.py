@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ def generate_token_id() -> str:
 
 async def create_user_session(
     db: AsyncSession,
-    user_id: int,
+    user_id: UUID,
     token_id: str,
     user_agent: str | None = None,
     ip_address: str | None = None,
@@ -36,13 +36,13 @@ async def revoke_user_session(db: AsyncSession, token_id: str) -> bool:
     )
     session = result.scalar_one_or_none()
     if session and session.revoked_at is None:
-        session.revoked_at = datetime.now(timezone.utc)
+        session.revoked_at = datetime.now(UTC)
         await db.commit()
         return True
     return False
 
 
-async def list_active_sessions(db: AsyncSession, user_id: int) -> list[UserSession]:
+async def list_active_sessions(db: AsyncSession, user_id: UUID) -> list[UserSession]:
     result = await db.execute(
         select(UserSession)
         .where(
