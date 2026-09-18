@@ -1,10 +1,12 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import require_admin, require_roles
+from app.core.dependencies import require_roles
 from app.core.redis import clear_cached_user_roles
 from app.db.session import get_db
 from app.modules.account.model import UserSession
@@ -17,7 +19,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class ApproveRequest(BaseModel):
-    role_ids: list[int]
+    role_ids: list[UUID]
 
 
 class RejectRequest(BaseModel):
@@ -44,10 +46,10 @@ async def list_users(
     _admin: User = Depends(require_roles(["MASTER_ADMIN", "DEVOPS_IT"])),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(User).options(selectinload(User.roles), selectinload(User.role))
+    stmt = select(User).options(selectinload(User.roles))
     if user_status:
         stmt = stmt.where(User.status == user_status)
-    stmt = stmt.order_by(User.created_at.desc()) if hasattr(User, "created_at") else stmt.order_by(User.id.desc())
+    stmt = stmt.order_by(User.created_at.desc())
     result = await db.execute(stmt)
     users = list(result.scalars().all())
     return [serialize_user(u) for u in users]
@@ -55,22 +57,24 @@ async def list_users(
 
 @router.patch("/users/{user_id}/approve", response_model=UserPublic)
 async def approve_user(
-    user_id: int,
+    user_id: UUID,
     payload: ApproveRequest,
     _admin: User = Depends(require_roles(["MASTER_ADMIN", "DEVOPS_IT"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User)
-        .options(selectinload(User.roles))
-        .where(User.id == user_id)
+        select(User).options(selectinload(User.roles)).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     if user.status == UserStatus.APPROVED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is already approved")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User is already approved"
+        )
 
     # Reject MASTER_ADMIN role assignment via this endpoint
     master_role_result = await db.execute(
@@ -107,19 +111,11 @@ async def approve_user(
     user.status = UserStatus.APPROVED
 
     # Clear existing M2M roles
-    await db.execute(
-        user_roles.delete().where(user_roles.c.user_id == user.id)
-    )
+    await db.execute(user_roles.delete().where(user_roles.c.user_id == user.id))
 
     # Insert new roles
     for role_id in payload.role_ids:
-        await db.execute(
-            user_roles.insert().values(user_id=user.id, role_id=role_id)
-        )
-
-    # Also set legacy role_id to the first assigned role (if any)
-    if payload.role_ids:
-        user.role_id = payload.role_ids[0]
+        await db.execute(user_roles.insert().values(user_id=user.id, role_id=role_id))
 
     await db.commit()
 
@@ -131,9 +127,7 @@ async def approve_user(
 
     # Reload with relationships
     result = await db.execute(
-        select(User)
-        .options(selectinload(User.roles), selectinload(User.role))
-        .where(User.id == user_id)
+        select(User).options(selectinload(User.roles)).where(User.id == user_id)
     )
     user = result.scalar_one()
 
@@ -145,17 +139,21 @@ async def approve_user(
 
 @router.patch("/users/{user_id}/reject", response_model=MessageResponse)
 async def reject_user(
-    user_id: int,
+    user_id: UUID,
     _admin: User = Depends(require_roles(["MASTER_ADMIN", "DEVOPS_IT"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     if user.status == UserStatus.REJECTED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is already rejected")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User is already rejected"
+        )
 
     user.status = UserStatus.REJECTED
     await db.commit()
@@ -166,19 +164,19 @@ async def reject_user(
 
 @router.patch("/users/{user_id}/update", response_model=UserPublic)
 async def update_user_record(
-    user_id: int,
+    user_id: UUID,
     payload: UpdateUserRequest,
     admin: User = Depends(require_roles(["MASTER_ADMIN", "DEVOPS_IT"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User)
-        .options(selectinload(User.roles), selectinload(User.role))
-        .where(User.id == user_id)
+        select(User).options(selectinload(User.roles)).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     admin_role_names = [r.name for r in admin.roles] if admin.roles else []
     caller_is_master = "MASTER_ADMIN" in admin_role_names
@@ -193,7 +191,10 @@ async def update_user_record(
             )
         user.username = payload.username
 
-    if payload.email is not None and payload.email.lower() != (user.email or "").lower():
+    if (
+        payload.email is not None
+        and payload.email.lower() != (user.email or "").lower()
+    ):
         dup = await db.execute(select(User).where(User.email == payload.email))
         if dup.scalar_one_or_none():
             raise HTTPException(
@@ -204,8 +205,16 @@ async def update_user_record(
 
     if payload.first_name is not None or payload.last_name is not None:
         current = (user.full_name or "").split(maxsplit=1)
-        first = payload.first_name if payload.first_name is not None else (current[0] if current else "")
-        last = payload.last_name if payload.last_name is not None else (current[1] if len(current) > 1 else "")
+        first = (
+            payload.first_name
+            if payload.first_name is not None
+            else (current[0] if current else "")
+        )
+        last = (
+            payload.last_name
+            if payload.last_name is not None
+            else (current[1] if len(current) > 1 else "")
+        )
         user.full_name = (" ".join(p for p in (first, last) if p)) or None
 
     if payload.is_active is not None:
@@ -249,17 +258,11 @@ async def update_user_record(
                     detail="Another account already holds the MASTER_ADMIN role",
                 )
 
-        # Preserve the caller-provided role order for the legacy role_id
-        provided_order = {name: idx for idx, name in enumerate(new_names)}
-        ordered_roles = sorted(valid_roles, key=lambda r: provided_order.get(r.name, 0))
-
         await db.execute(user_roles.delete().where(user_roles.c.user_id == user.id))
-        for role in ordered_roles:
+        for role in valid_roles:
             await db.execute(
                 user_roles.insert().values(user_id=user.id, role_id=role.id)
             )
-        user.role_id = ordered_roles[0].id if ordered_roles else None
-        user.is_admin = "MASTER_ADMIN" in valid_names
 
     await db.commit()
 
@@ -267,9 +270,7 @@ async def update_user_record(
     db.expire_all()
 
     refreshed = await db.execute(
-        select(User)
-        .options(selectinload(User.roles), selectinload(User.role))
-        .where(User.id == user_id_capture)
+        select(User).options(selectinload(User.roles)).where(User.id == user_id_capture)
     )
     user = refreshed.scalar_one()
 
@@ -279,7 +280,7 @@ async def update_user_record(
 
 @router.delete("/users/{user_id}", response_model=MessageResponse)
 async def delete_user_record(
-    user_id: int,
+    user_id: UUID,
     admin: User = Depends(require_roles(["MASTER_ADMIN", "DEVOPS_IT"])),
     db: AsyncSession = Depends(get_db),
 ):
@@ -292,10 +293,14 @@ async def delete_user_record(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     # Remove dependent rows before deleting the user
-    await db.execute(UserSession.__table__.delete().where(UserSession.user_id == user_id))
+    await db.execute(
+        UserSession.__table__.delete().where(UserSession.user_id == user_id)
+    )
     await db.execute(user_roles.delete().where(user_roles.c.user_id == user_id))
     await db.execute(delete(User).where(User.id == user_id))
     await db.commit()

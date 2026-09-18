@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.session import async_session_factory
-from app.modules.auth.router import router as auth_router
 from app.modules.admin.router import router as admin_router
+from app.modules.auth.router import router as auth_router
 from app.modules.roles.router import router as roles_router
 from app.modules.roles.service import seed_roles, seed_super_admin
 

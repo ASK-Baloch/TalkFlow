@@ -9,6 +9,7 @@ export default function Recorder({ onRecordingComplete }) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState(null);
   const [audioBlob, setAudioBlob] = useState(null);
+  const [recordingFilename, setRecordingFilename] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const mediaRecorderRef = useRef(null);
@@ -52,6 +53,7 @@ export default function Recorder({ onRecordingComplete }) {
         const url = URL.createObjectURL(blob);
         setAudioBlob(blob);
         setAudioUrl(url);
+        setRecordingFilename(`talkflow-recording-${Date.now()}.webm`);
 
         if (onRecordingComplete) {
           onRecordingComplete({ blob, url, duration: recordingTime });
@@ -63,6 +65,7 @@ export default function Recorder({ onRecordingComplete }) {
       setIsPaused(false);
       setRecordingTime(0);
       setAudioUrl(null);
+      setRecordingFilename(null);
     } catch (err) {
       console.error("Microphone access denied or error starting recording:", err);
     }
@@ -105,6 +108,7 @@ export default function Recorder({ onRecordingComplete }) {
   const discardRecording = () => {
     setAudioUrl(null);
     setAudioBlob(null);
+    setRecordingFilename(null);
     setRecordingTime(0);
     setIsPlaying(false);
   };
@@ -217,7 +221,7 @@ export default function Recorder({ onRecordingComplete }) {
             </button>
             <a
               href={audioUrl}
-              download={`talkflow-recording-${Date.now()}.webm`}
+              download={recordingFilename}
               className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg flex items-center justify-center space-x-1 transition shadow-sm"
             >
               <Download className="w-3.5 h-3.5" />

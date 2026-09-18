@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any
+import uuid
 
 import redis.asyncio as aioredis
 
@@ -13,7 +13,8 @@ redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
 
 # ── Role cache (list of role names per user) ──────────────────────────────
 
-async def get_cached_user_roles(user_id: int) -> list[str] | None:
+
+async def get_cached_user_roles(user_id: uuid.UUID) -> list[str] | None:
     try:
         cached = await redis_client.get(f"user_roles:{user_id}")
         return json.loads(cached) if cached else None
@@ -23,7 +24,7 @@ async def get_cached_user_roles(user_id: int) -> list[str] | None:
 
 
 async def set_cached_user_roles(
-    user_id: int, role_names: list[str], ttl: int | None = None
+    user_id: uuid.UUID, role_names: list[str], ttl: int | None = None
 ) -> None:
     try:
         await redis_client.setex(
@@ -35,45 +36,15 @@ async def set_cached_user_roles(
         logger.warning("Redis unavailable in set_cached_user_roles", exc_info=True)
 
 
-async def clear_cached_user_roles(user_id: int) -> None:
+async def clear_cached_user_roles(user_id: uuid.UUID) -> None:
     try:
         await redis_client.delete(f"user_roles:{user_id}")
     except Exception:
         logger.warning("Redis unavailable in clear_cached_user_roles", exc_info=True)
 
 
-# Legacy single-role cache helpers (kept for transition period)
-
-async def get_cached_user_role(user_id: int) -> dict[str, Any] | None:
-    try:
-        cached = await redis_client.get(f"user_role:{user_id}")
-        return json.loads(cached) if cached else None
-    except Exception:
-        logger.warning("Redis unavailable in get_cached_user_role", exc_info=True)
-        return None
-
-
-async def set_cached_user_role(
-    user_id: int, role_data: dict[str, Any], ttl: int | None = None
-) -> None:
-    try:
-        await redis_client.setex(
-            f"user_role:{user_id}",
-            ttl or settings.role_cache_ttl,
-            json.dumps(role_data),
-        )
-    except Exception:
-        logger.warning("Redis unavailable in set_cached_user_role", exc_info=True)
-
-
-async def clear_cached_user_role(user_id: int) -> None:
-    try:
-        await redis_client.delete(f"user_role:{user_id}")
-    except Exception:
-        logger.warning("Redis unavailable in clear_cached_user_role", exc_info=True)
-
-
 # ── Token blacklist ───────────────────────────────────────────────────────
+
 
 async def is_token_blacklisted(jti: str) -> bool:
     try:

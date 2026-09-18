@@ -167,6 +167,7 @@ export function useSystemState(initialAction, onActionChange) {
     failureQueue,
     integrations,
     apiKeys,
+    webhooks,
     severityFilter,
     setSeverityFilter,
     alertStatusFilter,

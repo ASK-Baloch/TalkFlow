@@ -62,6 +62,10 @@ export default function PendingApprovalsView() {
   }, []);
 
   useEffect(() => {
+    // Data fetch on mount: fetchPendingUsers/fetchRoles set loading/error
+    // state before their awaits, which the rule can't distinguish from a
+    // derived-state anti-pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPendingUsers();
     fetchRoles();
   }, [fetchPendingUsers, fetchRoles]);

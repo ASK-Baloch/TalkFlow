@@ -9,16 +9,13 @@ from app.core.redis import is_token_blacklisted
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.modules.auth.model import User, UserStatus
-from app.modules.roles.model import user_roles, Role
 
 security_scheme = HTTPBearer(auto_error=True)
 
 
 async def _fetch_user_by_email(db: AsyncSession, email: str) -> User | None:
     result = await db.execute(
-        select(User)
-        .options(selectinload(User.role), selectinload(User.roles))
-        .where(User.email == email)
+        select(User).options(selectinload(User.roles)).where(User.email == email)
     )
     return result.scalar_one_or_none()
 
@@ -86,12 +83,8 @@ async def get_current_jti(
 
 
 def _user_role_names(user: User) -> list[str]:
-    """Return the list of role names for a user (M2M first, fallback to legacy FK)."""
-    if user.roles:
-        return [r.name for r in user.roles]
-    if user.role:
-        return [user.role.name]
-    return []
+    """Return the list of role names assigned to a user."""
+    return [r.name for r in user.roles] if user.roles else []
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -121,13 +114,18 @@ def require_roles(allowed_names: list[str]):
 
 
 def require_role(allowed_domains: list[str]):
-    """Verify the user's role domain is in the allowed list (admins bypass)."""
+    """Verify at least one of the user's roles has an allowed domain (admins bypass)."""
 
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         role_names = _user_role_names(current_user)
         if "MASTER_ADMIN" in role_names:
             return current_user
-        if not current_user.role or current_user.role.domain.value not in allowed_domains:
+        user_domains = (
+            {r.domain.value for r in current_user.roles}
+            if current_user.roles
+            else set()
+        )
+        if not user_domains.intersection(allowed_domains):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient role permissions",

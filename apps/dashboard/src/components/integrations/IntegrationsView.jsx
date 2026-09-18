@@ -48,11 +48,15 @@ export default function IntegrationsView({ initialAction, onActionChange }) {
 
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(initialAction === "new");
 
-  React.useEffect(() => {
+  // Re-open the modal if initialAction changes to "new" after mount
+  // (adjusting state during render instead of in an effect).
+  const [prevInitialAction, setPrevInitialAction] = useState(initialAction);
+  if (initialAction !== prevInitialAction) {
+    setPrevInitialAction(initialAction);
     if (initialAction === "new") {
       setIsKeyModalOpen(true);
     }
-  }, [initialAction]);
+  }
 
   const handleOpenKeyModal = () => {
     setIsKeyModalOpen(true);

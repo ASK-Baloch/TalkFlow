@@ -1,4 +1,4 @@
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,45 +74,35 @@ async def seed_roles(db: AsyncSession) -> None:
 
 async def _migrate_legacy_roles(db: AsyncSession) -> None:
     for old_name, new_name in LEGACY_ROLE_NAMES.items():
-        legacy_result = await db.execute(
-            select(Role).where(Role.name == old_name)
-        )
+        legacy_result = await db.execute(select(Role).where(Role.name == old_name))
         legacy_role = legacy_result.scalar_one_or_none()
         if legacy_role is None:
             continue
 
-        spec_result = await db.execute(
-            select(Role).where(Role.name == new_name)
-        )
+        spec_result = await db.execute(select(Role).where(Role.name == new_name))
         spec_role = spec_result.scalar_one_or_none()
         if spec_role is None:
             continue
 
-        # Merge junction rows: keep any already pointing at the spec role,
-        # repoint the rest, then drop the legacy rows entirely.
+        # Merge junction rows: repoint everyone under the legacy role to the
+        # spec role, then drop the legacy rows entirely.
         await db.execute(
             pg_insert(user_roles)
             .from_select(
                 [user_roles.c.user_id, user_roles.c.role_id],
-                select(user_roles.c.user_id, legacy_role.id).where(
+                select(user_roles.c.user_id, spec_role.id).where(
                     user_roles.c.role_id == legacy_role.id
                 ),
             )
-            .on_conflict_do_nothing(index_elements=[user_roles.c.user_id, user_roles.c.role_id])
+            .on_conflict_do_nothing(
+                index_elements=[user_roles.c.user_id, user_roles.c.role_id]
+            )
         )
         await db.execute(
             delete(user_roles).where(user_roles.c.role_id == legacy_role.id)
         )
 
-        await db.execute(
-            update(User)
-            .where(User.role_id == legacy_role.id)
-            .values(role_id=spec_role.id)
-        )
-
-        await db.execute(
-            delete(Role).where(Role.id == legacy_role.id)
-        )
+        await db.execute(delete(Role).where(Role.id == legacy_role.id))
 
     await db.commit()
 
@@ -132,9 +122,6 @@ async def seed_super_admin(db: AsyncSession) -> None:
         needs_update = False
         if existing.status != UserStatus.APPROVED:
             existing.status = UserStatus.APPROVED
-            needs_update = True
-        if existing.role_id != master_role.id:
-            existing.role_id = master_role.id
             needs_update = True
 
         has_junction = await db.execute(
@@ -159,10 +146,8 @@ async def seed_super_admin(db: AsyncSession) -> None:
         full_name=settings.seed_admin_full_name,
         username="admin",
         extension="Not assigned",
-        is_admin=True,
         is_active=True,
         status=UserStatus.APPROVED,
-        role=master_role,
     )
     db.add(user)
     await db.flush()
