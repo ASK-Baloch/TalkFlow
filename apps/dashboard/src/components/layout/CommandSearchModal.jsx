@@ -115,7 +115,7 @@ export default function CommandSearchModal({ isOpen, onClose, onNavigate }) {
 
           {filteredResults.length === 0 ? (
             <div className="p-8 text-center text-xs text-neutral-500">
-              No matching records found for "{searchQuery}".
+              No matching records found for &quot;{searchQuery}&quot;.
             </div>
           ) : (
             <div className="space-y-1">

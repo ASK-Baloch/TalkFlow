@@ -124,7 +124,7 @@ export default function LeadDetailView({ lead, onBack }) {
 
                   {call.notes && (
                     <p className="italic text-neutral-500 dark:text-neutral-400 mt-1 border-t border-neutral-200/60 dark:border-neutral-800/60 pt-2">
-                      "{call.notes}"
+                      &quot;{call.notes}&quot;
                     </p>
                   )}
                 </div>

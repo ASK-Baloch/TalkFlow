@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import logo from "../../../public/logo2.png";
 import {
@@ -103,8 +103,11 @@ export default function Sidebar({
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(activeTab === "settings");
   const [isVerifierExpanded, setIsVerifierExpanded] = useState(activeTab === "verifier");
 
-  // Keep expanded state in sync when activeTab changes
-  useEffect(() => {
+  // Keep expanded state in sync when activeTab changes (adjusting state
+  // during render instead of in an effect avoids an extra, visible render pass).
+  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
+  if (activeTab !== prevActiveTab) {
+    setPrevActiveTab(activeTab);
     if (activeTab === "campaigns") setIsCampaignsExpanded(true);
     if (activeTab === "leads") setIsLeadsExpanded(true);
     if (activeTab === "qa") setIsQaExpanded(true);
@@ -112,7 +115,7 @@ export default function Sidebar({
     if (activeTab === "system" || activeTab === "integrations") setIsSystemExpanded(true);
     if (activeTab === "settings") setIsSettingsExpanded(true);
     if (activeTab === "verifier") setIsVerifierExpanded(true);
-  }, [activeTab]);
+  }
 
   const handleNavClick = (tabId, action = null) => {
     if (onNavigate) {

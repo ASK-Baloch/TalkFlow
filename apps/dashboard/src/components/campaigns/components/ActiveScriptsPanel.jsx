@@ -74,9 +74,9 @@ export default function ActiveScriptsPanel({ activeScripts }) {
             </div>
             <div className="flex flex-col gap-3 max-h-80 overflow-y-auto bg-neutral-50 dark:bg-[#18181b] p-4 rounded-lg text-xs leading-relaxed">
               <p className="font-bold text-blue-600">[Opening Greeting]</p>
-              <p>"Hello, my name is [Agent Name] calling on behalf of [Company]. How are you doing today?"</p>
+              <p>&quot;Hello, my name is [Agent Name] calling on behalf of [Company]. How are you doing today?&quot;</p>
               <p className="font-bold text-blue-600">[Qualification Check]</p>
-              <p>"I am reaching out to confirm your recent request regarding our services."</p>
+              <p>&quot;I am reaching out to confirm your recent request regarding our services.&quot;</p>
             </div>
             <div className="flex justify-end pt-3 border-t border-neutral-200 dark:border-neutral-800">
               <button type="button" onClick={() => setPreviewScript(null)} className="px-4 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-md">

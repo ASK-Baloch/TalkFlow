@@ -154,12 +154,15 @@ export default function UsersView({ initialAction, onActionChange }) {
     return ROLE_SLUG_MAP[initialAction] || null;
   }, [initialAction]);
 
-  // Sync modal with URL action (/users/new)
-  React.useEffect(() => {
+  // Sync modal with URL action (/users/new), adjusting state during render
+  // instead of in an effect to avoid an extra, visible render pass.
+  const [prevInitialAction, setPrevInitialAction] = useState(initialAction);
+  if (initialAction !== prevInitialAction) {
+    setPrevInitialAction(initialAction);
     if (initialAction === "new") {
       setIsAddModalOpen(true);
     }
-  }, [initialAction]);
+  }
 
   const handleRoleCardClick = (slug) => {
     if (onActionChange) {

@@ -112,16 +112,17 @@ export default function ScriptsView({ initialAction, onActionChange }) {
     activeScript?.disqualificationMessage || ""
   );
 
-  // Sync edit form when activeScript changes
-  React.useEffect(() => {
-    if (activeScript) {
-      setEditGreeting(activeScript.greeting || "");
-      setEditConsent(activeScript.consent || "");
-      setEditQuestions(activeScript.qualificationQuestions || []);
-      setEditTransferMsg(activeScript.transferMessage || "");
-      setEditDisqualifyMsg(activeScript.disqualificationMessage || "");
-    }
-  }, [activeScript]);
+  // Sync edit form when the active script changes (adjusting state during
+  // render instead of in an effect avoids an extra, visible render pass).
+  const [syncedScriptId, setSyncedScriptId] = useState(routeInfo.scriptId);
+  if (activeScript && routeInfo.scriptId !== syncedScriptId) {
+    setSyncedScriptId(routeInfo.scriptId);
+    setEditGreeting(activeScript.greeting || "");
+    setEditConsent(activeScript.consent || "");
+    setEditQuestions(activeScript.qualificationQuestions || []);
+    setEditTransferMsg(activeScript.transferMessage || "");
+    setEditDisqualifyMsg(activeScript.disqualificationMessage || "");
+  }
 
   // Simulator step-through state for /scripts/[scriptId]/preview
   const [simStep, setSimStep] = useState(0);
@@ -1070,14 +1071,14 @@ export default function ScriptsView({ initialAction, onActionChange }) {
                         onClick={() => handleSimUserResponse("consent_yes")}
                         className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-md hover:bg-emerald-700"
                       >
-                        "Yes, I give consent to proceed"
+                        &quot;Yes, I give consent to proceed&quot;
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSimUserResponse("consent_no")}
                         className="px-4 py-2 bg-rose-600 text-white font-bold rounded-md hover:bg-rose-700"
                       >
-                        "No, do not record me"
+                        &quot;No, do not record me&quot;
                       </button>
                     </div>
                   </div>
@@ -1092,14 +1093,14 @@ export default function ScriptsView({ initialAction, onActionChange }) {
                         onClick={() => handleSimUserResponse("qual_yes")}
                         className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-md hover:bg-emerald-700"
                       >
-                        "Yes, I am over 65 & have Medicare A & B"
+                        &quot;Yes, I am over 65 & have Medicare A & B&quot;
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSimUserResponse("qual_no")}
                         className="px-4 py-2 bg-rose-600 text-white font-bold rounded-md hover:bg-rose-700"
                       >
-                        "No, I don't have Medicare Part B"
+                        &quot;No, I don&apos;t have Medicare Part B&quot;
                       </button>
                     </div>
                   </div>

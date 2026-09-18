@@ -736,7 +736,7 @@ export default function SettingsView({ initialAction, onActionChange }) {
         <div className="flex flex-col gap-4">
           <div className="border-b border-neutral-200 dark:border-neutral-800 pb-3">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white">Role Permission Matrix (PRD §3 & §7)</h2>
-            <p className="text-xs text-neutral-500">Read-only view of TalkFlow's 6 PRD role definitions and module permission grants.</p>
+            <p className="text-xs text-neutral-500">Read-only view of TalkFlow&apos;s 6 PRD role definitions and module permission grants.</p>
           </div>
 
           <div className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0d0d0d] p-4 shadow-xs overflow-x-auto">
